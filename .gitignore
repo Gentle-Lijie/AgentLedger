@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+.agent-sessions/source/
+.env
+.env.*
+.pypirc
+.DS_Store

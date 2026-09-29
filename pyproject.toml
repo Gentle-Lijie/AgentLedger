@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentledger"
+dynamic = ["version"]
+description = "Incrementally archive AI coding agent sessions in Git commits"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Lijie Zhou" }]
+keywords = ["git", "hooks", "ai", "agents", "sessions", "archive"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Version Control :: Git",
+]
+dependencies = ["zstandard>=0.23"]
+
+[project.scripts]
+agentledger = "agentledger.cli:main"
+agent-session-commit = "agentledger.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Gentle-Lijie/AgentLedger"
+Repository = "https://github.com/Gentle-Lijie/AgentLedger"
+Issues = "https://github.com/Gentle-Lijie/AgentLedger/issues"
+Changelog = "https://github.com/Gentle-Lijie/AgentLedger/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["agentledger*", "agent_session_commit*"]
+namespaces = false
+
+[tool.setuptools.dynamic]
+version = { attr = "agentledger.__version__" }
