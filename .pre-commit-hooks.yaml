@@ -1,0 +1,10 @@
+- id: agentledger
+  name: Archive AI agent sessions into this commit
+  description: Incrementally archive project sessions and amend the just-created commit.
+  entry: agentledger hook post-commit
+  language: python
+  stages: [post-commit]
+  always_run: true
+  pass_filenames: false
+  require_serial: true
+  minimum_pre_commit_version: "3.2.0"

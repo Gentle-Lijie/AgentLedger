@@ -28,7 +28,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install build tools
-        run: python -m pip install --upgrade build twine
+        run: python -m pip install --upgrade build twine pre-commit
+      - name: Validate pre-commit hook and example config
+        run: |
+          pre-commit validate-manifest .pre-commit-hooks.yaml
+          pre-commit validate-config examples/.pre-commit-config.yaml
       - name: Check version and release tag
         env:
           RELEASE_TAG: ${{ inputs.release-tag }}
