@@ -410,12 +410,17 @@ class PreCommitSetupTests(unittest.TestCase):
         self.config.write_bytes(config_before)
         # Emulate a Windows legacy code page for subprocesses without an
         # explicit encoding, while the real Git process still emits UTF-8.
-        # Python 3.10 calls locale directly; 3.11+ uses this helper.
-        encoding_target = (
-            "subprocess._text_encoding" if hasattr(subprocess, "_text_encoding")
-            else "subprocess.locale.getpreferredencoding"
-        )
-        with patch(encoding_target, return_value="cp1252"):
+        # Inject the default at the public Popen boundary rather than rely on
+        # encoding internals that differ between Python 3.10 and newer versions.
+        real_popen = subprocess.Popen
+
+        def legacy_popen(*args, **kwargs):
+            if (kwargs.get("text") or kwargs.get("universal_newlines") or kwargs.get("errors")) \
+                    and kwargs.get("encoding") is None:
+                kwargs["encoding"] = "cp1252"
+            return real_popen(*args, **kwargs)
+
+        with patch("subprocess.Popen", side_effect=legacy_popen):
             setup = PreCommitSetup(self.repo)
             self.assertEqual(setup.root, self.repo.resolve())
             setup.install("custom", self.source)
