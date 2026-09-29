@@ -2,11 +2,70 @@
 
 [简体中文配置指南](precommit.zh-CN.md)
 
-Agent Session Commit `0.1.1` includes a hook for the [pre-commit framework](https://pre-commit.com/). You need Git, Python 3.10 or newer, and pre-commit 3.2.0 or newer. The framework installs Agent Session Commit and its dependencies in an isolated Python environment; a separate `pip install agent-session-commit` is unnecessary.
+Agent Session Commit includes a hook for the [pre-commit framework](https://pre-commit.com/). You need Git, Python 3.10 or newer, and pre-commit 3.2.0 or newer; Windows requires Git for Windows. The framework installs the archive backend in an isolated Python environment. A separate installation is needed only if you want to run the development installer helper in your shell.
 
 Version `0.1.1` is [published on PyPI](https://pypi.org/project/agent-session-commit/0.1.1/) and the `v0.1.1` tag is available. The earlier `v0.1.0` PyPI upload under `agentledger` failed a project-name conflict check without uploading distribution files; that tag remains unchanged.
 
-## Configure a repository
+The source version on `main` is **0.1.2 (unreleased)**. Its new TUI helper can configure the repository and call the framework installer in one command. It is not available in the published 0.1.1 package. The shared YAML below continues to use stable `v0.1.1` as the archive backend.
+
+## Development 0.1.2: configure with the TUI helper
+
+This is the recommended setup **when trying development version 0.1.2**. Clone the source and install it in a persistent virtual environment:
+
+~~~sh
+git clone https://github.com/Gentle-Lijie/AgentLedger.git
+cd AgentLedger
+python -m venv .venv
+# macOS / Linux:
+source .venv/bin/activate
+# Windows PowerShell instead:
+# .\.venv\Scripts\Activate.ps1
+# Windows Git Bash instead:
+# source .venv/Scripts/activate
+python -m pip install --index-url https://pypi.org/simple -e '.[pre-commit]'
+~~~
+
+Use the activation command appropriate to your shell. The optional `[pre-commit]` extra installs the framework controller; `questionary` and `PyYAML` are base dependencies. Keep the environment active as you switch to the target repository, and retain it after installation. If you move or delete it, reinstall the hooks from a working environment.
+
+~~~sh
+cd /absolute/path/to/target-repository
+agent-session-commit install --pre-commit
+~~~
+
+Use the arrow keys and Enter to select an agent. The next prompt supports path completion for a session directory or supported SQLite file. It prefills the saved Git-local source if the agent matches the previous selection, otherwise the agent's default path. Custom and Trae export directories are created if missing; other sources must already exist. Ctrl+C cancels without changing Git configuration.
+
+The helper saves `agent-session.agent` and `agent-session.source` in local Git configuration, then invokes the framework installer. It does not create native hook wrappers. Each clone needs its own setup; rerun the helper to change your agent or source.
+
+Configuration handling:
+
+- With no `.pre-commit-config.yaml`, it generates the YAML shown in the stable section below, pinned to available `v0.1.1`, with `default_install_hook_types: [pre-commit, post-commit]`.
+- An existing YAML file, including comments and other hooks, is preserved. It must already include hook ID `agent-session-commit` or legacy `agentledger`. If the entry is missing, setup stops with actionable merge instructions; it does not rewrite your configuration automatically. Merge the entry shown below, then rerun the helper.
+- Installation includes all hook types from `default_install_hook_types` and ensures `post-commit`, even when absent from that list. Commit the YAML so collaborators can reuse it; for future plain `pre-commit install` runs, include `post-commit` in that list yourself.
+- If framework installation fails, previous local Git settings and hook files are restored and newly generated YAML is removed.
+
+Before setup, migrate any native wrappers with `agent-session-commit uninstall` as described below. The helper detects them and explains the migration; it does not auto-uninstall. `core.hooksPath` must be unset so Git uses its default hooks directory. If the controller is missing, install the `[pre-commit]` extra using the source-install command above, then retry.
+
+For CI or other noninteractive setup, supply both flags:
+
+~~~sh
+agent-session-commit install --pre-commit --agent codex --source /absolute/path/to/sessions
+~~~
+
+`--pre-commit`, `--agent`, and `--source` are valid only with `install`. Supplying both agent and source skips the TUI; an interactive terminal is required when either is omitted. The source must be accessible in that environment. Git hooks never show the TUI.
+
+As an alternative to a checkout, install from `main` into an active persistent environment with a quoted PEP 508 reference:
+
+~~~sh
+python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit] @ git+https://github.com/Gentle-Lijie/AgentLedger.git@main'
+~~~
+
+Prefer the checkout instructions for development. Neither method installs a published 0.1.2 release from PyPI.
+
+Ordinary upstream `pre-commit install` has no plugin setup callback, so it cannot automatically show this wizard. Use the explicit helper above, or the stable manual steps below. `agent-session-commit install` **without `--pre-commit`** remains the native installer (with a TUI in source version 0.1.2) and owns native wrappers.
+
+## Stable 0.1.1: configure a repository manually
+
+These steps remain valid with published 0.1.1. Only the pre-commit controller needs to be installed in your shell; the framework installs the archive backend separately.
 
 Run these commands inside the repository whose sessions you want to archive. If it already uses Agent Session Commit's native hooks, complete the migration section first.
 
@@ -58,9 +117,9 @@ For an existing configuration, merge the repository entry and include both hook 
 pre-commit install
 ~~~
 
-The framework installs into Git's default `.git/hooks` directory and refuses installation when `core.hooksPath` is set, even if that setting points to `.git/hooks`. If the installer reports this, inspect `git config --show-origin --get core.hooksPath` and choose which hook manager should own the repository before changing that configuration.
+The framework installs into Git's default `.git/hooks` directory and refuses installation when `core.hooksPath` is set, even if that setting points to `.git/hooks`. If the installer reports this, inspect `git config --show-origin --get-all core.hooksPath` and choose which hook manager should own the repository before changing that configuration.
 
-Commit `.pre-commit-config.yaml` to share the integration with collaborators. They run the Git configuration commands and `pre-commit install` in their own clones. Do not run `agent-session-commit install` for this setup.
+Commit `.pre-commit-config.yaml` to share the integration with collaborators. They run the Git configuration commands and `pre-commit install` in their own clones, or use the development helper above. Do not run native `agent-session-commit install` **without `--pre-commit`** alongside framework-managed hooks.
 
 ## Why post-commit?
 
@@ -74,13 +133,15 @@ Amending changes the SHA; use `git rev-parse HEAD` for the final value. Archive 
 
 ## Migrate from native Agent Session Commit hooks
 
-If you previously ran `agent-session-commit install`, use its existing installation to uninstall the native wrappers first:
+If you previously ran native `agent-session-commit install` **without `--pre-commit`**, use its existing installation to uninstall the native wrappers first:
 
 ~~~sh
 agent-session-commit uninstall
 ~~~
 
-Older installations can use `agentledger uninstall`, the retained compatibility command. Uninstall restores backed-up hooks and removes `agent-session.agent` and `agent-session.source`. Previously committed archives and local fingerprint state remain. Configure the agent and source again, copy or merge the example configuration, then install the framework hooks:
+Older installations can use `agentledger uninstall`, the retained compatibility command. Uninstall restores backed-up hooks and removes `agent-session.agent` and `agent-session.source`. Previously committed archives and local fingerprint state remain. With development 0.1.2, run `agent-session-commit install --pre-commit` afterward to select and save your agent/source again. The helper preflight instructs you to uninstall native wrappers first and does not remove them automatically.
+
+With stable 0.1.1, configure the agent and source again, copy or merge the example configuration, then install the framework hooks:
 
 ~~~sh
 git config --local agent-session.agent codex

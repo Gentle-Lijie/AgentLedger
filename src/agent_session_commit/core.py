@@ -75,7 +75,9 @@ def default_source(agent: str) -> Path | None:
 
 
 def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8",
+    )
     if check and result.returncode:
         raise RuntimeError(result.stderr.strip() or f"git {' '.join(args)} failed")
     return result
@@ -100,9 +102,13 @@ def _shell_path(path: Path) -> str:
     return value
 
 
-def configure(root: Path, agent: str, source: Path) -> None:
+def save_configuration(root: Path, agent: str, source: Path) -> None:
     _git(root, "config", "--local", "agent-session.agent", agent)
     _git(root, "config", "--local", "agent-session.source", str(source))
+
+
+def configure(root: Path, agent: str, source: Path) -> None:
+    save_configuration(root, agent, source)
     for hook_name in ("pre-commit", "post-commit"):
         hook_path = _git_path(root, f"hooks/{hook_name}")
         hook_path.parent.mkdir(parents=True, exist_ok=True)
