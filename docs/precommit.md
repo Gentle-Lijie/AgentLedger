@@ -1,8 +1,10 @@
 # Use Agent Session Commit with the pre-commit framework
 
+[简体中文配置指南](precommit.zh-CN.md)
+
 Agent Session Commit `0.1.1` includes a hook for the [pre-commit framework](https://pre-commit.com/). You need Git, Python 3.10 or newer, and pre-commit 3.2.0 or newer. The framework installs Agent Session Commit and its dependencies in an isolated Python environment; a separate `pip install agent-session-commit` is unnecessary.
 
-The remote configuration below works once the `v0.1.1` tag is available. It does not imply that the release has already been published. The earlier `v0.1.0` PyPI upload under `agentledger` failed a project-name conflict check without uploading distribution files; that tag remains unchanged.
+Version `0.1.1` is [published on PyPI](https://pypi.org/project/agent-session-commit/0.1.1/) and the `v0.1.1` tag is available. The earlier `v0.1.0` PyPI upload under `agentledger` failed a project-name conflict check without uploading distribution files; that tag remains unchanged.
 
 ## Configure a repository
 

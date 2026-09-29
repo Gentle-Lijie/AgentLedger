@@ -56,6 +56,8 @@ Previously committed archives and local archive state remain in place.
 
 ### Use the pre-commit framework
 
+中文步骤：[pre-commit 配置指南](https://github.com/Gentle-Lijie/AgentLedger/blob/main/docs/precommit.zh-CN.md)。
+
 Agent Session Commit 0.1.1 also supports the [pre-commit framework](https://pre-commit.com/). Install `pre-commit` version 3.2.0 or newer; it installs Agent Session Commit automatically in an isolated Python environment.
 
 Copy the [example configuration](https://github.com/Gentle-Lijie/AgentLedger/blob/main/examples/.pre-commit-config.yaml) to your target repository's `.pre-commit-config.yaml`, or merge its settings into an existing configuration:
