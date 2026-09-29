@@ -52,6 +52,35 @@ agentledger uninstall
 
 Previously committed archives and local archive state remain in place.
 
+### Use the pre-commit framework
+
+AgentLedger 0.1.0 also supports the [pre-commit framework](https://pre-commit.com/). Install `pre-commit` version 3.2.0 or newer; it installs AgentLedger automatically in an isolated Python environment.
+
+Copy the [example configuration](https://github.com/Gentle-Lijie/AgentLedger/blob/main/examples/.pre-commit-config.yaml) to your target repository's `.pre-commit-config.yaml`, or merge its settings into an existing configuration:
+
+~~~yaml
+minimum_pre_commit_version: '3.2.0'
+default_install_hook_types: [pre-commit, post-commit]
+repos:
+  - repo: https://github.com/Gentle-Lijie/AgentLedger
+    rev: v0.1.0
+    hooks:
+      - id: agentledger
+~~~
+
+Inside that repository, configure your source and install the framework's hooks:
+
+~~~sh
+python -m pip install 'pre-commit>=3.2.0'
+git config --local agent-session.agent codex
+git config --local agent-session.source "$HOME/.codex/sessions"
+pre-commit install
+~~~
+
+If you previously ran `agentledger install`, run `agentledger uninstall` **before** setting these Git values and installing pre-commit. Uninstall removes those values, so configure them again afterward. Let pre-commit own the hooks when using this integration.
+
+The `post-commit` stage is intentional: it archives changed sessions and amends the commit that just succeeded. Unchanged sessions cause no amend. This configuration is included in the first `v0.1.0` release and requires that tag to be available. See the [integration guide](https://github.com/Gentle-Lijie/AgentLedger/blob/main/docs/precommit.md) for other agents, `CODEX_HOME`, Windows commands, migration, and a portable synthetic example.
+
 ### Compatibility with earlier installations
 
 The canonical package, command, and Python module are now `agentledger`. The old `agent-session-commit` command and `agent_session_commit.cli` module are retained as compatibility shims. The version source is `src/agentledger/__init__.py`.

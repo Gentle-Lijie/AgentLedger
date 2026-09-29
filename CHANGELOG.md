@@ -2,7 +2,7 @@
 
 Changes are recorded before publication. Versions come from `__version__` in `src/agentledger/__init__.py`; release tags use the exact form `v<version>`.
 
-## 0.1.0 — Unreleased
+## 0.1.0 — 2026-09-29
 
 ### Added
 
@@ -12,6 +12,7 @@ Changes are recorded before publication. Versions come from `__version__` in `sr
 - Read-only SQLite exports for ZCode and Hermes, and Zstandard log support for DeepSeek Harness.
 - Hook backups/restoration, local fingerprints, and synthetic tests in disposable repositories.
 - Contributor, security, and release documentation.
+- pre-commit framework integration in the first `v0.1.0` release: the `agentledger` post-commit hook, example configuration, and setup/migration guide in [docs/precommit.md](docs/precommit.md). The framework installs AgentLedger in an isolated Python environment; repository-local Git settings select the agent and session source.
 
 ### Changed
 
@@ -37,4 +38,4 @@ Changes are recorded before publication. Versions come from `__version__` in `sr
 
 - The CI contract tests installed wheels on macOS, Linux, and Windows with Python 3.10 and 3.14.
 - Tag publication builds and validates wheel/sdist artifacts, passes the same matrix, publishes to PyPI, then creates a GitHub Release with distribution assets.
-- See [docs/releasing.md](docs/releasing.md) for prerequisites. This unreleased entry does not assert that remote CI or publication has completed.
+- See [docs/releasing.md](docs/releasing.md) for prerequisites.
