@@ -85,7 +85,10 @@ class ReleaseMetadataTests(unittest.TestCase):
     def build_fixtures(self) -> None:
         with zipfile.ZipFile(self.dist / "agentledger-0.1.0-py3-none-any.whl", "w") as archive:
             for name, data in self.wheel_files.items():
-                archive.writestr(name, data)
+                # Keep deliberately unsafe archive names unchanged on Windows.
+                entry = zipfile.ZipInfo()
+                entry.filename = name
+                archive.writestr(entry, data)
         with tarfile.open(self.dist / "agentledger-0.1.0.tar.gz", "w:gz") as archive:
             for name, data in self.sdist_files.items():
                 entry = tarfile.TarInfo(name)
@@ -192,7 +195,7 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def test_unsafe_paths_rejected_without_extraction(self) -> None:
         for artifact in (self.wheel_files, self.sdist_files):
-            for path in ("../escaped.txt", "/absolute.txt", "C:/Windows/token.txt", "bad\\file.txt"):
+            for path in ("../escaped.txt", "/absolute.txt", "C:/Windows/token.txt", "bad\\file.txt", "bad\x00file.txt"):
                 with self.subTest(path=path):
                     artifact[path] = b"fixture"
                     self.build_fixtures()

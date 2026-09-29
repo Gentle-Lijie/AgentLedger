@@ -24,6 +24,7 @@ Changes are recorded before publication. Versions come from `__version__` in `sr
 ### Fixed
 
 - Read all appended Zstandard frames in DeepSeek Harness logs, skip malformed compressed files, and bound decompressed content size.
+- Validate original ZIP entry names so Windows path normalization cannot hide unsafe release archive paths.
 
 ### Known limitations
 

@@ -61,7 +61,7 @@ def normalized_name(name: str) -> str:
 def check_member_path(name: str) -> str:
     """Validate all entries, including directories and otherwise unused files."""
     path = PurePosixPath(name)
-    if not path.parts or "\\" in name or path.is_absolute() or ".." in path.parts or re.match(r"^[A-Za-z]:", name):
+    if not path.parts or "\x00" in name or "\\" in name or path.is_absolute() or ".." in path.parts or re.match(r"^[A-Za-z]:", name):
         raise ReleaseError(f"Unsafe archive path: {name!r}")
     for part in path.parts:
         lower = part.lower()
@@ -116,7 +116,9 @@ def check_wheel(path: Path, version: str) -> None:
     seen = set()
     with zipfile.ZipFile(path) as archive:
         for member in archive.infolist():
-            name = check_member_path(member.filename)
+            # ZipInfo normalizes OS separators on Windows and truncates NULs.
+            # Validate the original archive spelling before that normalization.
+            name = check_member_path(member.orig_filename)
             if name in seen:
                 raise ReleaseError(f"{path.name}: duplicate archive entry {name}")
             seen.add(name)
