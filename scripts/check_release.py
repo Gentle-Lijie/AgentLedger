@@ -20,8 +20,8 @@ from typing import Mapping
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_NAME = "agentledger"
-PACKAGE_PATH = "agentledger"
+PACKAGE_NAME = "agent-session-commit"
+PACKAGE_PATH = "agent_session_commit"
 
 
 class ReleaseError(ValueError):
@@ -140,8 +140,8 @@ def check_wheel(path: Path, version: str) -> None:
     parser = configparser.ConfigParser(interpolation=None, strict=True)
     parser.optionxform = str
     parser.read_string(files[f"{info}/entry_points.txt"].decode("utf-8"))
-    if parser.get("console_scripts", "agentledger", fallback="").strip() != "agentledger.cli:main":
-        raise ReleaseError(f"{path.name}: missing or incorrect agentledger console script")
+    if parser.get("console_scripts", "agent-session-commit", fallback="").strip() != "agent_session_commit.cli:main":
+        raise ReleaseError(f"{path.name}: missing or incorrect agent-session-commit console script")
 
 
 def check_sdist(path: Path, version: str) -> None:

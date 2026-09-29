@@ -42,11 +42,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-INFO = "agentledger-0.1.0.dist-info"
-ROOT = "agentledger-0.1.0"
+INFO = "agent_session_commit-0.1.0.dist-info"
+ROOT = "agent_session_commit-0.1.0"
 
 
-def metadata(version: str = "0.1.0", name: str = "agentledger") -> bytes:
+def metadata(version: str = "0.1.0", name: str = "agent-session-commit") -> bytes:
     return (f"Metadata-Version: 2.4\nName: {name}\nVersion: {version}\n"
             "License-Expression: MIT\nLicense-File: LICENSE\n\nRelease fixture\n").encode()
 
@@ -56,7 +56,7 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.repo = Path(self.temp.name)
-        source = self.repo / "src" / "agentledger" / "__init__.py"
+        source = self.repo / "src" / "agent_session_commit" / "__init__.py"
         source.parent.mkdir(parents=True)
         # Executing this module would fail. Checking release versions must not import it.
         source.write_text('__version__ = "0.1.0"\nraise RuntimeError("do not import")\n', encoding="utf-8")
@@ -64,32 +64,32 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.dist = self.repo / "dist"
         self.dist.mkdir()
         self.wheel_files = {
-            "agentledger/__init__.py": b'__version__ = "0.1.0"\n',
-            "agentledger/cli.py": b"def main(): pass\n",
-            "agent_session_commit/__init__.py": b"from agentledger import __version__\n",
-            "agent_session_commit/cli.py": b"from agentledger.cli import main\n",
+            "agent_session_commit/__init__.py": b'__version__ = "0.1.0"\n',
+            "agent_session_commit/cli.py": b"def main(): pass\n",
+            "agentledger/__init__.py": b"from agent_session_commit import __version__\n",
+            "agentledger/cli.py": b"from agent_session_commit.cli import main\n",
             f"{INFO}/METADATA": metadata(),
-            f"{INFO}/entry_points.txt": b"[console_scripts]\nagentledger = agentledger.cli:main\nagent-session-commit = agentledger.cli:main\n",
+            f"{INFO}/entry_points.txt": b"[console_scripts]\nagent-session-commit = agent_session_commit.cli:main\nagentledger = agentledger.cli:main\n",
             f"{INFO}/licenses/LICENSE": MIT,
         }
         self.sdist_files = {
             f"{ROOT}/LICENSE": MIT,
             f"{ROOT}/README.md": b"# AgentLedger\n",
             f"{ROOT}/PKG-INFO": metadata(),
-            f"{ROOT}/src/agentledger/__init__.py": b'__version__ = "0.1.0"\n',
-            f"{ROOT}/src/agentledger/cli.py": b"def main(): pass\n",
-            f"{ROOT}/src/agent_session_commit/__init__.py": b"from agentledger import __version__\n",
-            f"{ROOT}/src/agent_session_commit/cli.py": b"from agentledger.cli import main\n",
+            f"{ROOT}/src/agent_session_commit/__init__.py": b'__version__ = "0.1.0"\n',
+            f"{ROOT}/src/agent_session_commit/cli.py": b"def main(): pass\n",
+            f"{ROOT}/src/agentledger/__init__.py": b"from agent_session_commit import __version__\n",
+            f"{ROOT}/src/agentledger/cli.py": b"from agent_session_commit.cli import main\n",
         }
 
     def build_fixtures(self) -> None:
-        with zipfile.ZipFile(self.dist / "agentledger-0.1.0-py3-none-any.whl", "w") as archive:
+        with zipfile.ZipFile(self.dist / "agent_session_commit-0.1.0-py3-none-any.whl", "w") as archive:
             for name, data in self.wheel_files.items():
                 # Keep deliberately unsafe archive names unchanged on Windows.
                 entry = zipfile.ZipInfo()
                 entry.filename = name
                 archive.writestr(entry, data)
-        with tarfile.open(self.dist / "agentledger-0.1.0.tar.gz", "w:gz") as archive:
+        with tarfile.open(self.dist / "agent_session_commit-0.1.0.tar.gz", "w:gz") as archive:
             for name, data in self.sdist_files.items():
                 entry = tarfile.TarInfo(name)
                 entry.size = len(data)
@@ -117,16 +117,28 @@ class ReleaseMetadataTests(unittest.TestCase):
                     self.check()
 
     def test_valid_artifacts_and_normalized_distribution_name(self) -> None:
-        self.wheel_files[f"{INFO}/METADATA"] = metadata(name="AgentLedger")
-        self.sdist_files[f"{ROOT}/PKG-INFO"] = metadata(name="AGENTLEDGER")
+        self.wheel_files[f"{INFO}/METADATA"] = metadata(name="Agent_Session.Commit")
+        self.sdist_files[f"{ROOT}/PKG-INFO"] = metadata(name="AGENT-SESSION-COMMIT")
         self.build_fixtures()
         self.assertEqual(self.check(tag="v0.1.0", dist_dir=Path("dist")), "0.1.0")
+
+    def test_legacy_aliases_are_allowed_but_not_required(self) -> None:
+        self.build_fixtures()
+        self.assertEqual(self.check(dist_dir=self.dist), "0.1.0")
+        for name in ("agentledger/__init__.py", "agentledger/cli.py"):
+            del self.wheel_files[name]
+            del self.sdist_files[f"{ROOT}/src/{name}"]
+        self.wheel_files[f"{INFO}/entry_points.txt"] = (
+            b"[console_scripts]\nagent-session-commit = agent_session_commit.cli:main\n"
+        )
+        self.build_fixtures()
+        self.assertEqual(self.check(dist_dir=self.dist), "0.1.0")
 
     def test_each_artifact_must_match_source_version_and_name(self) -> None:
         for artifact, key in ((self.wheel_files, f"{INFO}/METADATA"),
                               (self.sdist_files, f"{ROOT}/PKG-INFO")):
             for invalid in (metadata(version="0.1.1"), metadata(name="another-package"),
-                            metadata(name="agent-session-commit"),
+                            metadata(name="agentledger"),
                             metadata().replace(b"Version: 0.1.0", b"Version: 0.1.0\nVersion: 0.1.1")):
                 with self.subTest(artifact=key, metadata=invalid):
                     artifact[key] = invalid
@@ -149,9 +161,9 @@ class ReleaseMetadataTests(unittest.TestCase):
             self.check(dist_dir=self.dist)
 
     def test_required_package_docs_license_and_entry_point(self) -> None:
-        required_wheel = ("agentledger/__init__.py", "agentledger/cli.py",
+        required_wheel = ("agent_session_commit/__init__.py", "agent_session_commit/cli.py",
                           f"{INFO}/METADATA", f"{INFO}/licenses/LICENSE", f"{INFO}/entry_points.txt")
-        required_source = tuple(key for key in self.sdist_files if "/agent_session_commit/" not in key)
+        required_source = tuple(key for key in self.sdist_files if "/agentledger/" not in key)
         for artifact, required in ((self.wheel_files, required_wheel), (self.sdist_files, required_source)):
             for key in required:
                 with self.subTest(missing=key):
@@ -163,7 +175,8 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def test_entry_point_and_pep639_license_contract(self) -> None:
         modifications = (
-            (f"{INFO}/entry_points.txt", b"[console_scripts]\nagentledger = wrong.cli:main\n"),
+            (f"{INFO}/entry_points.txt", b"[console_scripts]\nagent-session-commit = wrong.cli:main\n"),
+            (f"{INFO}/entry_points.txt", b"[console_scripts]\nagentledger = agentledger.cli:main\n"),
             (f"{INFO}/entry_points.txt", b"[console_scripts]\nagent-session-commit = agentledger.cli:main\n"),
             (f"{INFO}/METADATA", metadata().replace(b"License-Expression: MIT", b"License-Expression: Apache-2.0")),
             (f"{INFO}/METADATA", metadata().replace(b"License-File: LICENSE\n", b"")),
@@ -206,9 +219,9 @@ class ReleaseMetadataTests(unittest.TestCase):
 
     def test_archive_links_cannot_hide_forbidden_data(self) -> None:
         self.build_fixtures()
-        wheel = self.dist / "agentledger-0.1.0-py3-none-any.whl"
+        wheel = self.dist / "agent_session_commit-0.1.0-py3-none-any.whl"
         with zipfile.ZipFile(wheel, "a") as archive:
-            link = zipfile.ZipInfo("agentledger/history")
+            link = zipfile.ZipInfo("agent_session_commit/history")
             link.create_system = 3
             link.external_attr = 0o120777 << 16
             archive.writestr(link, b"../../.agent-sessions")
@@ -216,7 +229,7 @@ class ReleaseMetadataTests(unittest.TestCase):
             self.check(dist_dir=self.dist)
         self.build_fixtures()
         # Write a valid source fixture with an additional disguised history link.
-        with tarfile.open(self.dist / "agentledger-0.1.0.tar.gz", "w:gz") as archive:
+        with tarfile.open(self.dist / "agent_session_commit-0.1.0.tar.gz", "w:gz") as archive:
             for name, data in self.sdist_files.items():
                 entry = tarfile.TarInfo(name)
                 entry.size = len(data)

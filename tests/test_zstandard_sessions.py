@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import zstandard
 
-from agentledger.core import _scan, configure
+from agent_session_commit.core import _scan, configure
 
 
 class HarnessSessionTests(unittest.TestCase):
@@ -48,7 +48,7 @@ class HarnessSessionTests(unittest.TestCase):
         payload = (json.dumps({"cwd": str(self.repo), "message": "a" * 4000}) + "\n").encode()
         self.log.write_bytes(self.compressor.compress(payload))
         self.assertLess(self.log.stat().st_size, 512)
-        with patch("agentledger.core.MAX_FILE_SIZE", 512):
+        with patch("agent_session_commit.core.MAX_FILE_SIZE", 512):
             self.assertEqual(_scan(self.repo), [])
 
 

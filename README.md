@@ -1,10 +1,12 @@
-# AgentLedger
+# Agent Session Commit
 
-Incrementally archive AI coding-agent sessions in the same Git commit as your code. AgentLedger targets macOS, Linux, and Windows with Python 3.10 or newer.
+Incrementally archive AI coding-agent sessions in the same Git commit as your code. Agent Session Commit targets macOS, Linux, and Windows with Python 3.10 or newer.
 
 After a successful commit, the hook adds a session bundle using `git commit --amend --no-edit`. There are no extra agent chore commits. Unchanged sessions produce no bundle and no amend.
 
-Author: Lijie Zhou · GitHub: [Gentle-Lijie/AgentLedger](https://github.com/Gentle-Lijie/AgentLedger) · Initial version: 0.1.0.
+Author: Lijie Zhou · GitHub: [Gentle-Lijie/AgentLedger](https://github.com/Gentle-Lijie/AgentLedger) · Release version: 0.1.1.
+
+Version 0.1.1 restores the `agent-session-commit` distribution and command. The `v0.1.0` upload attempt under `agentledger` failed because PyPI rejected the project name; no distribution files were uploaded. That tag remains unchanged.
 
 ## Install from source
 
@@ -26,7 +28,7 @@ Use `python -m pip install -e .` for development. Keep the installed Python envi
 **After the first release is available on PyPI**, you can also install with:
 
 ~~~sh
-python -m pip install agentledger==0.1.0
+python -m pip install agent-session-commit==0.1.1
 ~~~
 
 On Windows, install Git for Windows and Python. Run the CLI in PowerShell or Git Bash; Git executes its shell hooks using Git for Windows.
@@ -36,8 +38,8 @@ On Windows, install Git for Windows and Python. Run the CLI in PowerShell or Git
 Inside the repository you want to archive:
 
 ~~~sh
-agentledger install
-agentledger status
+agent-session-commit install
+agent-session-commit status
 ~~~
 
 Choose one agent and its local session directory or supported SQLite file. The selection is repository-local Git configuration; run `install` separately in each repository. Rerun it to change the source or refresh hooks after an upgrade.
@@ -47,14 +49,14 @@ Existing executable pre-commit and post-commit hooks are backed up and called by
 To disable archiving and restore backed-up hooks:
 
 ~~~sh
-agentledger uninstall
+agent-session-commit uninstall
 ~~~
 
 Previously committed archives and local archive state remain in place.
 
 ### Use the pre-commit framework
 
-AgentLedger 0.1.0 also supports the [pre-commit framework](https://pre-commit.com/). Install `pre-commit` version 3.2.0 or newer; it installs AgentLedger automatically in an isolated Python environment.
+Agent Session Commit 0.1.1 also supports the [pre-commit framework](https://pre-commit.com/). Install `pre-commit` version 3.2.0 or newer; it installs Agent Session Commit automatically in an isolated Python environment.
 
 Copy the [example configuration](https://github.com/Gentle-Lijie/AgentLedger/blob/main/examples/.pre-commit-config.yaml) to your target repository's `.pre-commit-config.yaml`, or merge its settings into an existing configuration:
 
@@ -63,9 +65,9 @@ minimum_pre_commit_version: '3.2.0'
 default_install_hook_types: [pre-commit, post-commit]
 repos:
   - repo: https://github.com/Gentle-Lijie/AgentLedger
-    rev: v0.1.0
+    rev: v0.1.1
     hooks:
-      - id: agentledger
+      - id: agent-session-commit
 ~~~
 
 Inside that repository, configure your source and install the framework's hooks:
@@ -77,13 +79,13 @@ git config --local agent-session.source "$HOME/.codex/sessions"
 pre-commit install
 ~~~
 
-If you previously ran `agentledger install`, run `agentledger uninstall` **before** setting these Git values and installing pre-commit. Uninstall removes those values, so configure them again afterward. Let pre-commit own the hooks when using this integration.
+If you previously ran `agent-session-commit install`, run `agent-session-commit uninstall` **before** setting these Git values and installing pre-commit. Older installations can use `agentledger uninstall` for the same migration. Uninstall removes those values, so configure them again afterward. Let pre-commit own the hooks when using this integration.
 
-The `post-commit` stage is intentional: it archives changed sessions and amends the commit that just succeeded. Unchanged sessions cause no amend. This configuration is included in the first `v0.1.0` release and requires that tag to be available. See the [integration guide](https://github.com/Gentle-Lijie/AgentLedger/blob/main/docs/precommit.md) for other agents, `CODEX_HOME`, Windows commands, migration, and a portable synthetic example.
+The `post-commit` stage is intentional: it archives changed sessions and amends the commit that just succeeded. Unchanged sessions cause no amend. The canonical hook ID is `agent-session-commit`, with entry `agent-session-commit hook post-commit`; the old `agentledger` hook ID remains an alias. This configuration requires the `v0.1.1` tag to be available. See the [integration guide](https://github.com/Gentle-Lijie/AgentLedger/blob/main/docs/precommit.md) for other agents, `CODEX_HOME`, Windows commands, migration, and a portable synthetic example.
 
 ### Compatibility with earlier installations
 
-The canonical package, command, and Python module are now `agentledger`. The old `agent-session-commit` command and `agent_session_commit.cli` module are retained as compatibility shims. The version source is `src/agentledger/__init__.py`.
+The canonical PyPI distribution and command are `agent-session-commit`; the canonical Python module is `agent_session_commit`. The old `agentledger` command and module remain compatibility shims. The single version source is `src/agent_session_commit/__init__.py`.
 
 Internal names remain unchanged for existing installations: Git configuration uses `agent-session.agent` and `agent-session.source`, private state lives under Git's `agent-session-commit/` directory, and the recursion guard is `AGENT_SESSION_COMMIT_RECURSION`. Bundles still live under `.agent-sessions/`. These names do not require migration when refreshing hooks.
 
@@ -124,19 +126,19 @@ SQLite adapters export project-matched rows rather than raw database files. Unkn
 With the installed environment active:
 
 ~~~sh
-mkdir agentledger-demo
-cd agentledger-demo
+mkdir agent-session-commit-demo
+cd agent-session-commit-demo
 git init
 git config user.name "Test User"
 git config user.email "test@example.invalid"
-agentledger install
+agent-session-commit install
 ~~~
 
 Choose **Custom session/export directory** and accept `.agent-sessions/source/`. Create a synthetic transcript containing this repository's absolute path:
 
 ~~~sh
 python -c "import json; from pathlib import Path; Path('.agent-sessions/source/demo.jsonl').write_text(json.dumps({'cwd': str(Path.cwd()), 'message': 'synthetic test'}) + '\n', encoding='utf-8')"
-agentledger status
+agent-session-commit status
 git commit --allow-empty -m "Test session archive"
 git log --oneline
 git ls-tree -r --name-only HEAD -- .agent-sessions/bundles

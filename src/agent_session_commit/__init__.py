@@ -1,5 +1,3 @@
-"""Compatibility namespace for hooks installed before the AgentLedger rename."""
+"""Agent Session Commit: incremental Git archiving for AI coding agent sessions."""
 
-from agentledger import __version__
-
-__all__ = ["__version__"]
+__version__ = "0.1.1"

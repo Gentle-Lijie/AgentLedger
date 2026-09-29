@@ -115,7 +115,7 @@ def configure(root: Path, agent: str, source: Path) -> None:
         backup_shell = shlex.quote(_shell_path(backup))
         original_call = f"if [ -x {backup_shell} ]; then\n  {backup_shell} \"$@\"\n  ORIGINAL_STATUS=$?\n  if [ \"$ORIGINAL_STATUS\" -ne 0 ] && [ \"{hook_name}\" = \"pre-commit\" ]; then exit \"$ORIGINAL_STATUS\"; fi\nfi\n" if backup.exists() else ""
         invocation = (
-            f"  {shlex.quote(_shell_path(Path(sys.executable)))} -m agentledger.cli hook {hook_name}\n"
+            f"  {shlex.quote(_shell_path(Path(sys.executable)))} -m agent_session_commit.cli hook {hook_name}\n"
         )
         managed_call = (
             f"{HOOK_BEGIN}\n"
@@ -393,7 +393,7 @@ def _write_bundle(root: Path, source: Path, sessions: list[tuple[Path, bytes]]) 
 def _scan(root: Path) -> list[tuple[Path, bytes]]:
     configured = _config(root, "agent-session.source")
     if not configured:
-        raise RuntimeError("Not installed. Run `agentledger install` first.")
+        raise RuntimeError("Not installed. Run `agent-session-commit install` first.")
     source = Path(configured).expanduser().resolve()
     if not source.exists():
         raise RuntimeError(f"Configured session source is unavailable: {source}")
@@ -406,7 +406,7 @@ def status(root: Path) -> None:
     agent = _config(root, "agent-session.agent")
     source = _config(root, "agent-session.source")
     if not agent or not source:
-        print("AgentLedger is not installed in this repository.")
+        print("Agent Session Commit is not installed in this repository.")
         return
     sessions = _scan(root)
     source_path = Path(source).resolve()
@@ -432,7 +432,7 @@ def run_hook(root: Path, hook_name: str) -> int:
     try:
         sessions = _scan(root)
     except RuntimeError as exc:
-        print(f"agentledger: {exc}", file=sys.stderr)
+        print(f"agent-session-commit: {exc}", file=sys.stderr)
         return 0
     configured = _config(root, "agent-session.source")
     source = Path(configured).expanduser().resolve() if configured else root
@@ -442,7 +442,7 @@ def run_hook(root: Path, hook_name: str) -> int:
     try:
         lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     except FileExistsError:
-        print("agentledger: another archive operation is active; skipping.", file=sys.stderr)
+        print("agent-session-commit: another archive operation is active; skipping.", file=sys.stderr)
         return 0
     os.close(lock_fd)
     bundle: Path | None = None
@@ -500,16 +500,16 @@ def run_hook(root: Path, hook_name: str) -> int:
                     text=True,
                 )
             except subprocess.SubprocessError as exc:
-                print(f"agentledger: archive amended, but index refresh failed: {exc}", file=sys.stderr)
+                print(f"agent-session-commit: archive amended, but index refresh failed: {exc}", file=sys.stderr)
             state_path.write_text(json.dumps(updated, indent=2, sort_keys=True), encoding="utf-8")
             final_commit = _git(root, "rev-parse", "--short", "HEAD").stdout.strip()
-            print(f"agentledger: session archive added to commit {final_commit}", file=sys.stderr)
+            print(f"agent-session-commit: session archive added to commit {final_commit}", file=sys.stderr)
         else:
             raise RuntimeError(result.stderr.strip() or "Git could not amend the commit.")
     except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
         if bundle is not None and not _git(root, "cat-file", "-e", f"HEAD:{bundle.relative_to(root)}", check=False).returncode == 0:
             bundle.unlink(missing_ok=True)
-        print(f"agentledger: archive amend skipped: {exc}", file=sys.stderr)
+        print(f"agent-session-commit: archive amend skipped: {exc}", file=sys.stderr)
     finally:
         if index_path is not None:
             index_path.unlink(missing_ok=True)

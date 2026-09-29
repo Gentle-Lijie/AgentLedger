@@ -3,7 +3,7 @@ requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentledger"
+name = "agent-session-commit"
 dynamic = ["version"]
 description = "Incrementally archive AI coding agent sessions in Git commits"
 readme = "README.md"
@@ -30,8 +30,8 @@ classifiers = [
 dependencies = ["zstandard>=0.23"]
 
 [project.scripts]
-agentledger = "agentledger.cli:main"
-agent-session-commit = "agentledger.cli:main"
+agent-session-commit = "agent_session_commit.cli:main"
+agentledger = "agent_session_commit.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Gentle-Lijie/AgentLedger"
@@ -41,8 +41,8 @@ Changelog = "https://github.com/Gentle-Lijie/AgentLedger/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["agentledger*", "agent_session_commit*"]
+include = ["agent_session_commit*", "agentledger*"]
 namespaces = false
 
 [tool.setuptools.dynamic]
-version = { attr = "agentledger.__version__" }
+version = { attr = "agent_session_commit.__version__" }

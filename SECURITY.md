@@ -1,4 +1,4 @@
-# AgentLedger security policy
+# Agent Session Commit security policy
 
 ## Reporting a vulnerability
 
@@ -8,7 +8,7 @@ Include the affected version, OS, Python/Git versions, relevant configuration, i
 
 ## Session archives and disclosure
 
-AgentLedger reads local records and writes unencrypted bundles into Git commits. Prompts, replies, code, tool output, local paths, and credentials may be present. The manifest includes the absolute repository path. Checksums do not encrypt or redact content.
+Agent Session Commit reads local records and writes unencrypted bundles into Git commits. Prompts, replies, code, tool output, local paths, and credentials may be present. The manifest includes the absolute repository path. Checksums do not encrypt or redact content.
 
 Repository matching is heuristic. A matching text file can contain material from multiple projects. SQLite exports are best-effort and can omit related records or include rows that mention the repository. Use a controlled export directory when you need to review exactly what is eligible for capture.
 
@@ -20,10 +20,10 @@ Uninstalling does not remove bundles from Git history. If credentials are commit
 
 The post-commit hook amends the just-created commit and changes its SHA. A temporary index keeps unrelated staged changes out; internal hooks are suppressed. Existing hooks are executable code with their normal privileges. Signed commits need a working signing key for the amend; an archive failure leaves the original commit intact.
 
-The legacy command/module shims and internal storage/configuration names remain available for earlier installations. See [README.md](README.md) for their names.
+The canonical distribution and CLI are `agent-session-commit`, and the Python module is `agent_session_commit`. The `agentledger` command/module shims and hook alias, along with internal storage/configuration names, remain available for earlier installations. See [README.md](README.md) for their names.
 
 ## Release credentials
 
-The publisher uses `PYPI_API_TOKEN`, with `PYPI_TOKEN` as fallback, from the target repository or its `pypi` environment. Never place token values in files, command examples, logs, issue text, or release assets. A secret configured on another repository is not automatically available here; the token must permit the new `agentledger` PyPI project.
+The publisher uses `PYPI_API_TOKEN`, with `PYPI_TOKEN` as fallback, from the target repository or its `pypi` environment. Never place token values in files, command examples, logs, issue text, or release assets. A secret configured on another repository is not automatically available here; the token must permit the `agent-session-commit` PyPI project.
 
 See [release setup](docs/releasing.md) for configuration and the tag-triggered publication gate.

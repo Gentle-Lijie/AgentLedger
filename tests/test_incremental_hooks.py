@@ -9,7 +9,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from agentledger.core import AGENTS, configure
+from agent_session_commit.core import AGENTS, configure
 
 
 class HookIntegrationTests(unittest.TestCase):

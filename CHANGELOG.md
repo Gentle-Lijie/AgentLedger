@@ -1,8 +1,21 @@
-# AgentLedger changelog
+# Agent Session Commit changelog
 
-Changes are recorded before publication. Versions come from `__version__` in `src/agentledger/__init__.py`; release tags use the exact form `v<version>`.
+Changes are recorded before publication. Versions come from `__version__` in `src/agent_session_commit/__init__.py`; release tags use the exact form `v<version>`.
 
-## 0.1.0 — 2026-09-29
+## 0.1.1 — 2026-09-29
+
+### Changed
+
+- Restore Agent Session Commit branding, PyPI distribution and CLI `agent-session-commit`, and canonical Python module `agent_session_commit`.
+- Use `src/agent_session_commit/__init__.py` as the single version source. Retain the `agentledger` CLI and module as compatibility shims.
+- Use pre-commit hook ID `agent-session-commit` with entry `agent-session-commit hook post-commit`; retain the old `agentledger` hook alias.
+- Update installation and pre-commit examples to version `0.1.1` and tag `v0.1.1`. The GitHub repository remains `Gentle-Lijie/AgentLedger`.
+
+### Publication history
+
+- The `v0.1.0` upload attempt under `agentledger` failed because PyPI rejected the project name as too similar to an existing project. No distribution files were uploaded. The public `v0.1.0` tag remains unchanged; `0.1.1` is the name restoration release.
+
+## 0.1.0 — 2026-09-29 (failed PyPI publication)
 
 ### Added
 
@@ -12,12 +25,12 @@ Changes are recorded before publication. Versions come from `__version__` in `sr
 - Read-only SQLite exports for ZCode and Hermes, and Zstandard log support for DeepSeek Harness.
 - Hook backups/restoration, local fingerprints, and synthetic tests in disposable repositories.
 - Contributor, security, and release documentation.
-- pre-commit framework integration in the first `v0.1.0` release: the `agentledger` post-commit hook, example configuration, and setup/migration guide in [docs/precommit.md](docs/precommit.md). The framework installs AgentLedger in an isolated Python environment; repository-local Git settings select the agent and session source.
+- pre-commit framework integration in the `v0.1.0` tagged build: the `agentledger` post-commit hook, example configuration, and setup/migration guide in [docs/precommit.md](docs/precommit.md). The framework installs the tool in an isolated Python environment; repository-local Git settings select the agent and session source.
 
 ### Changed
 
-- Canonical branding is AgentLedger: PyPI package and CLI `agentledger`, Python module `agentledger`.
-- Legacy `agent-session-commit` CLI and `agent_session_commit.cli` remain compatibility shims. Internal Git configuration, state, and environment names are retained.
+- The tagged build used AgentLedger branding: PyPI package and CLI `agentledger`, Python module `agentledger`.
+- That build retained the `agent-session-commit` CLI and `agent_session_commit.cli` as compatibility shims. Internal Git configuration, state, and environment names were retained.
 - Bundles are added through `git commit --amend --no-edit`, replacing separate archive commits from earlier development.
 - Internal amend operations suppress hooks; existing post-commit hooks run once against final HEAD.
 - A temporary index excludes unrelated staged changes while retaining commit message, author, and parents.

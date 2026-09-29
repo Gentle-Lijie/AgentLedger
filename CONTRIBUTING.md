@@ -1,6 +1,6 @@
-# Contributing to AgentLedger
+# Contributing to Agent Session Commit
 
-AgentLedger is maintained by Lijie Zhou (GitHub: Gentle-Lijie). Use [Issues](https://github.com/Gentle-Lijie/AgentLedger/issues) and [Pull requests](https://github.com/Gentle-Lijie/AgentLedger/pulls) for bugs, proposals, and contributions. For security concerns, follow [SECURITY.md](SECURITY.md).
+Agent Session Commit is maintained by Lijie Zhou (GitHub: Gentle-Lijie). Use [Issues](https://github.com/Gentle-Lijie/AgentLedger/issues) and [Pull requests](https://github.com/Gentle-Lijie/AgentLedger/pulls) for bugs, proposals, and contributions. For security concerns, follow [SECURITY.md](SECURITY.md).
 
 ## Development setup
 
@@ -58,14 +58,16 @@ source .venv-wheel/bin/activate
 unset PYTHONPATH
 python -m pip install dist/*.whl
 export AGENT_SESSION_TEST_INSTALLED=1
-python -c "import agentledger; print(agentledger.__file__)"
+python -c "import agent_session_commit; print(agent_session_commit.__file__)"
 python -m unittest discover -s tests -v
 ~~~
 
-The printed `agentledger.__file__` must be inside the fresh environment's `site-packages`, not the checkout's `src/`. Keep the checkout's tests and scripts in place. Test fixtures should never require a live agent account. When returning to editable source development, unset `AGENT_SESSION_TEST_INSTALLED` and activate your development environment again.
+The printed `agent_session_commit.__file__` must be inside the fresh environment's `site-packages`, not the checkout's `src/`. Keep the checkout's tests and scripts in place. Test fixtures should never require a live agent account. When returning to editable source development, unset `AGENT_SESSION_TEST_INSTALLED` and activate your development environment again.
 
 ## Versions and publishing
 
-`__version__` in `src/agentledger/__init__.py` is the single version source, initially `0.1.0`. Package metadata must derive its version from it. Do not maintain a second manual version in metadata or compatibility shims.
+`__version__` in `src/agent_session_commit/__init__.py` is the single version source for release `0.1.1`. Package metadata must derive its version from it. The canonical distribution and CLI are `agent-session-commit`; the Python module is `agent_session_commit`. Preserve the `agentledger` CLI/module shims and pre-commit hook alias. Do not maintain a second manual version in metadata or compatibility shims.
+
+The `v0.1.0` upload attempt used `agentledger` and failed PyPI's project-name check before any distribution files were uploaded. Keep that public tag unchanged; `0.1.1` restores the selected name.
 
 Maintainers follow [docs/releasing.md](docs/releasing.md). Do not create or push a release tag as part of an ordinary contribution: pushing `v<version>` triggers publication.
