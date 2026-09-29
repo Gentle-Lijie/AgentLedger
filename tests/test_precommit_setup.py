@@ -146,7 +146,7 @@ class PreCommitSetupTests(unittest.TestCase):
         self.assertEqual(self.config.read_bytes(), DEFAULT_CONFIG.encode())
         data = yaml.safe_load(self.config.read_bytes())
         self.assertEqual(data["minimum_pre_commit_version"], "3.2.0")
-        self.assertEqual(data["repos"][0]["rev"], "v0.1.1")
+        self.assertEqual(data["repos"][0]["rev"], "v0.1.2")
         self.assertEqual(data["repos"][0]["hooks"][0]["id"], "agent-session-commit")
         self.assertEqual(self.controller_calls[-1], ["install", "--install-hooks", "--hook-type", "pre-commit",
                                                      "--hook-type", "post-commit"])
@@ -410,7 +410,12 @@ class PreCommitSetupTests(unittest.TestCase):
         self.config.write_bytes(config_before)
         # Emulate a Windows legacy code page for subprocesses without an
         # explicit encoding, while the real Git process still emits UTF-8.
-        with patch("subprocess._text_encoding", return_value="cp1252"):
+        # Python 3.10 calls locale directly; 3.11+ uses this helper.
+        encoding_target = (
+            "subprocess._text_encoding" if hasattr(subprocess, "_text_encoding")
+            else "subprocess.locale.getpreferredencoding"
+        )
+        with patch(encoding_target, return_value="cp1252"):
             setup = PreCommitSetup(self.repo)
             self.assertEqual(setup.root, self.repo.resolve())
             setup.install("custom", self.source)
