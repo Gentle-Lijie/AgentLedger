@@ -68,7 +68,7 @@ The printed `agent_session_commit.__file__` must be inside the fresh environment
 
 ## Versions and publishing
 
-`__version__` in `src/agent_session_commit/__init__.py` is the single version source for release `0.1.2`. Package metadata must derive its version from it. The canonical distribution and CLI are `agent-session-commit`; the Python module is `agent_session_commit`. Preserve the `agentledger` CLI/module shims and pre-commit hook alias. Do not maintain a second manual version in metadata or compatibility shims.
+`__version__` in `src/agent_session_commit/__init__.py` is the single version source for builds. It currently reports `0.1.3` in the checkout; that version is unreleased and not approved for publication. The current stable PyPI release is `0.1.2`. Package metadata must derive its version from the source file. The canonical distribution and CLI are `agent-session-commit`; the Python module is `agent_session_commit`. Preserve the `agentledger` CLI/module shims and pre-commit hook alias. Do not maintain a second manual version in metadata or compatibility shims.
 
 The `v0.1.0` upload attempt used `agentledger` and failed PyPI's project-name check before any distribution files were uploaded. Keep that public tag unchanged; `0.1.1` restored the selected name and was published on PyPI.
 

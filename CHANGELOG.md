@@ -2,6 +2,14 @@
 
 Changes are recorded before publication. Versions come from `__version__` in `src/agent_session_commit/__init__.py`; release tags use the exact form `v<version>`.
 
+## 0.1.3 — Unreleased (not approved for publication)
+
+### Changed
+
+- Claude Code now defaults to this repository's directory under `~/.claude/projects/` (or `CLAUDE_CONFIG_DIR/projects/`). Existing installations configured with the global Claude projects root are narrowed to that directory at runtime; explicitly selected custom sources remain supported.
+- A Claude project directory that does not exist yet is skipped without creating it. Native Claude JSONL files require an exact `cwd` match in their header; other files are skipped even if a directory-name collision or a message mentions this repository.
+- Reuse legacy Claude fingerprints after narrowing the source so unchanged transcripts are not archived again.
+
 ## 0.1.2 — 2026-09-29
 
 ### Added

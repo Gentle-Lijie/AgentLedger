@@ -38,7 +38,10 @@ def _source_error(root: Path, agent: str, value: str) -> bool | str:
             if source.is_file() and source.suffix.casefold() in {".db", ".sqlite", ".sqlite3"}:
                 return True if agent in {"zcode", "hermes"} else "SQLite sources are supported for ZCode and Hermes; choose a transcript directory for this agent."
             return "Choose a session directory or a SQLite database file."
-        if agent in {"custom", "trae"} or source == (root / ".agent-sessions" / "source").resolve():
+        claude_default = default_source("claude", root) if agent == "claude" else None
+        if (agent in {"custom", "trae"}
+                or source == (root / ".agent-sessions" / "source").resolve()
+                or (claude_default is not None and source == claude_default.resolve())):
             return True
         return f"Session source does not exist: {source}. Enter its actual path."
     except (OSError, ValueError, RuntimeError) as exc:
@@ -65,8 +68,14 @@ def _select_configuration(root: Path, agent: str | None, source_value: str | Non
     if source_value is None:
         import questionary
 
-        candidate = default_source(agent)
+        candidate = default_source(agent, root)
         previous_source = _config(root, "agent-session.source") if agent == previous_agent else None
+        if agent == "claude" and previous_source:
+            # An older install saved the global Claude projects directory.
+            # Offer the scoped path instead when refreshing its settings.
+            global_source = default_source("claude")
+            if global_source is not None and _resolve_source(root, previous_source) == global_source.resolve():
+                previous_source = None
         suggested = previous_source or str(candidate or (root / ".agent-sessions" / "source"))
         source_value = questionary.path(
             "Session directory or SQLite database:",
@@ -81,7 +90,7 @@ def _select_configuration(root: Path, agent: str | None, source_value: str | Non
     if error is not True:
         raise RuntimeError(str(error))
     source = _resolve_source(root, source_value)
-    if not source.exists():
+    if not source.exists() and (agent in {"custom", "trae"} or source == (root / ".agent-sessions" / "source").resolve()):
         source.mkdir(parents=True, exist_ok=True)
     return agent, source
 

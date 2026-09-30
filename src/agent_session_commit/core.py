@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shlex
 import sqlite3
 import subprocess
@@ -33,9 +34,20 @@ TEXT_SUFFIXES = {".jsonl", ".json", ".md", ".txt", ".yaml", ".yml"}
 COMPRESSED_SUFFIXES = {".zst", ".zstd"}
 MAX_FILE_SIZE = 50 * 1024 * 1024
 MAX_DATABASE_SIZE = 1024 * 1024 * 1024
+CLAUDE_HEADER_BYTES = 1024 * 1024
 
 
-def default_source(agent: str) -> Path | None:
+def claude_project_source(root: Path, projects_root: Path | None = None) -> Path:
+    """Claude Code's project directory for this checkout, even before it exists."""
+    projects = projects_root or default_source("claude")
+    assert projects is not None
+    # Claude encodes the absolute cwd using one dash per non-ASCII-alphanumeric
+    # character (including separators, drive colon, dots and spaces).
+    slug = re.sub(r"[^A-Za-z0-9]", "-", str(root.resolve()))
+    return projects / slug
+
+
+def default_source(agent: str, root: Path | None = None) -> Path | None:
     home = Path.home()
     if agent == "zcode":
         storage_override = os.environ.get("ZCODE_STORAGE_DIR")
@@ -56,7 +68,8 @@ def default_source(agent: str) -> Path | None:
         return base / "projects"
     if agent == "claude":
         base = Path(os.environ.get("CLAUDE_CONFIG_DIR", home / ".claude")).expanduser()
-        return base / "projects"
+        projects = base / "projects"
+        return claude_project_source(root, projects) if root is not None else projects
     if agent == "codex":
         base = Path(os.environ.get("CODEX_HOME", home / ".codex")).expanduser()
         return base / "sessions"
@@ -162,7 +175,37 @@ def uninstall(root: Path) -> None:
     _git(root, "config", "--local", "--unset", "agent-session.source", check=False)
 
 
+def _claude_session_owned_by(path: Path, root: Path) -> bool:
+    """Admit a native Claude transcript only when its header identifies this cwd."""
+    canonical_root = root.resolve()
+    try:
+        with path.open("rb") as stream:
+            header = stream.read(CLAUDE_HEADER_BYTES)
+    except OSError:
+        return False
+    for line in header.splitlines():
+        try:
+            record = json.loads(line)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if not isinstance(record, dict) or not isinstance(record.get("cwd"), str):
+            continue
+        candidate = Path(record["cwd"])
+        try:
+            if candidate.is_absolute() and candidate.resolve(strict=False) == canonical_root:
+                return True
+        except (OSError, RuntimeError):
+            continue
+    return False
+
+
 def _session_candidates(source: Path, root: Path) -> list[tuple[Path, bytes]]:
+    selected_agent = _config(root, "agent-session.agent")
+    native_claude_source = (
+        selected_agent == "claude"
+        and source.parent.name == "projects"
+        and source.name == claude_project_source(root).name
+    )
     root_forms = {
         str(root).replace("\\", "/").casefold(),
         str(root).replace("/", "\\").casefold(),
@@ -267,18 +310,22 @@ def _session_candidates(source: Path, root: Path) -> list[tuple[Path, bytes]]:
                     continue
             except OSError:
                 continue
-            if suffix in {".db", ".sqlite", ".sqlite3"} and _config(root, "agent-session.agent") in {"zcode", "hermes"}:
+            if suffix in {".db", ".sqlite", ".sqlite3"} and selected_agent in {"zcode", "hermes"}:
                 payload = sqlite_project_export(path)
                 if payload:
                     virtual_path = path.with_name(path.name + ".project-sessions.jsonl")
                     found.append((virtual_path, payload))
             elif suffix in TEXT_SUFFIXES:
+                if native_claude_source and (suffix != ".jsonl" or not _claude_session_owned_by(path, root)):
+                    continue
                 payload = path.read_bytes()
                 encoded_root = str(root).replace("/", "-").replace("\\", "-").casefold()
                 path_text = str(path).replace("\\", "/").casefold()
-                if matching(payload) or (encoded_root and encoded_root in path_text):
+                # Claude's slug is not unique: e.g. /a-b and /a/b collide.
+                # Require transcript content to identify the repository.
+                if native_claude_source or matching(payload) or (selected_agent != "claude" and encoded_root and encoded_root in path_text):
                     found.append((path, payload))
-            elif suffix in COMPRESSED_SUFFIXES and _config(root, "agent-session.agent") == "deepseek-harness":
+            elif suffix in COMPRESSED_SUFFIXES and selected_agent == "deepseek-harness":
                 try:
                     import zstandard
                 except ImportError:
@@ -314,16 +361,30 @@ def _load_state(path: Path) -> dict[str, object]:
         return {}
 
 
+def _legacy_claude_prefix(root: Path, source: Path) -> str:
+    # Legacy Claude installs used the projects root, so their state keys
+    # include the project slug. Reusing those fingerprints avoids re-archiving
+    # an unchanged transcript when the installer switches to a scoped source.
+    if (_config(root, "agent-session.agent") == "claude"
+        and source.parent.name == "projects"
+        and source.name == claude_project_source(root).name):
+        return source.name + "/"
+    return ""
+
+
 def _write_bundle(root: Path, source: Path, sessions: list[tuple[Path, bytes]]) -> tuple[Path | None, dict[str, object]]:
     state_path = _state_file(root)
     previous = _load_state(state_path)
     source_base = source.parent if source.is_file() else source
+    legacy_claude_prefix = _legacy_claude_prefix(root, source)
     changed: list[tuple[Path, bytes, str, int, int, str, str]] = []
     updated = dict(previous)
     for path, payload in sessions:
         rel = path.relative_to(source_base).as_posix()
         digest = hashlib.sha256(payload).hexdigest()
         prior = previous.get(rel)
+        if prior is None and legacy_claude_prefix:
+            prior = previous.get(legacy_claude_prefix + rel)
         if isinstance(prior, str):  # migrate the first release's digest-only state
             if prior == digest:
                 continue
@@ -396,12 +457,27 @@ def _write_bundle(root: Path, source: Path, sessions: list[tuple[Path, bytes]]) 
     return bundle, updated
 
 
+def _effective_source(root: Path, agent: str | None, source: Path) -> Path:
+    """Narrow legacy Claude installs that saved the entire projects root."""
+    if agent == "claude":
+        default_projects = default_source("claude")
+        if (default_projects is not None and source == default_projects.resolve()) or (
+            source.name == "projects" and source.parent.name == ".claude"
+        ):
+            return claude_project_source(root, source)
+    return source
+
+
 def _scan(root: Path) -> list[tuple[Path, bytes]]:
     configured = _config(root, "agent-session.source")
     if not configured:
         raise RuntimeError("Not installed. Run `agent-session-commit install` first.")
-    source = Path(configured).expanduser().resolve()
+    agent = _config(root, "agent-session.agent")
+    source = _effective_source(root, agent, Path(configured).expanduser().resolve())
     if not source.exists():
+        if agent == "claude" and source.parent.name == "projects" and source.name == claude_project_source(root).name:
+            # Claude creates this directory only after its first session.
+            return []
         raise RuntimeError(f"Configured session source is unavailable: {source}")
     if not source.is_dir() and source.suffix.casefold() not in {".db", ".sqlite", ".sqlite3"}:
         raise RuntimeError(f"Configured session source is not a directory or SQLite file: {source}")
@@ -416,19 +492,25 @@ def status(root: Path) -> None:
         return
     sessions = _scan(root)
     source_path = Path(source).resolve()
+    effective_source = _effective_source(root, agent, source_path)
     source_base = source_path.parent if source_path.is_file() else source_path
+    legacy_claude_prefix = _legacy_claude_prefix(root, source_path)
     state = _load_state(_state_file(root))
     def digest_matches(entry: object, digest: str) -> bool:
         if isinstance(entry, dict):
             return entry.get("sha256") == digest
         return entry == digest
 
-    pending = sum(
-        1 for path, payload in sessions
-        if not digest_matches(state.get(path.relative_to(source_base).as_posix()), hashlib.sha256(payload).hexdigest())
-    )
+    pending = 0
+    for path, payload in sessions:
+        rel = path.relative_to(source_base).as_posix()
+        prior = state.get(rel)
+        if prior is None and legacy_claude_prefix:
+            prior = state.get(legacy_claude_prefix + rel)
+        if not digest_matches(prior, hashlib.sha256(payload).hexdigest()):
+            pending += 1
     print(f"Agent: {AGENTS.get(agent, agent)}")
-    print(f"Source: {source}")
+    print(f"Source: {effective_source}")
     print(f"Project session files found: {len(sessions)} ({pending} changed)")
 
 

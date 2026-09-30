@@ -4,7 +4,7 @@ Incrementally archive AI coding-agent sessions in the same Git commit as your co
 
 After a successful commit, the hook adds a session bundle using `git commit --amend --no-edit`. There are no extra agent chore commits. Unchanged sessions produce no bundle and no amend.
 
-Author: Lijie Zhou · GitHub: [Gentle-Lijie/AgentLedger](https://github.com/Gentle-Lijie/AgentLedger) · Current release: 0.1.2.
+Author: Lijie Zhou · GitHub: [Gentle-Lijie/AgentLedger](https://github.com/Gentle-Lijie/AgentLedger) · Current stable PyPI release: 0.1.2. Checkout source reports 0.1.3, which is unreleased and not approved for publication.
 
 Version 0.1.1 restores the `agent-session-commit` distribution and command. The `v0.1.0` upload attempt under `agentledger` failed because PyPI rejected the project name; no distribution files were uploaded. That tag remains unchanged.
 
@@ -67,6 +67,8 @@ agent-session-commit status
 ~~~
 
 Use the arrow keys to select an agent, then confirm its session directory or SQLite file in the path-completion prompt. If the selected agent matches your existing local Git configuration, the prompt uses the saved source; otherwise it suggests that agent's default path. Custom and Trae export directories are created when missing. Ctrl+C cancels without changing Git configuration.
+
+In unreleased source 0.1.3, choosing Claude Code suggests this repository's Claude project directory, including when an older installation saved the global projects root. A missing Claude project directory is accepted but left for Claude to create after its first session.
 
 The helper saves `agent-session.agent` and `agent-session.source`, then calls the framework installer. pre-commit owns the hooks; the helper creates no native wrappers. If `.pre-commit-config.yaml` is missing, it generates the configuration below with the `v0.1.2` archive backend and both pre/post hook types. An existing configuration, including comments and other hooks, is preserved and must already contain `agent-session-commit` or legacy `agentledger`. If neither is present, setup stops with instructions to merge the entry yourself. All configured default hook types are installed, with `post-commit` ensured even if omitted from the YAML.
 
@@ -135,7 +137,7 @@ Archives are ordinary, unencrypted Git content. They can contain prompts, code, 
 | Qoder | `~/.qoder/projects/` | Text/JSONL scan; honors `QODER_CONFIG_DIR`. For IDE transcripts, select their actual directory. |
 | Trae IDE | Repository's `.agent-sessions/source/` | Export conversations to supported text files first. Encrypted IDE history is not read directly. |
 | Tencent CodeBuddy | `~/.codebuddy/projects/` | CLI transcripts; honors `CODEBUDDY_CONFIG_DIR`. CodeBuddy IDE requires exported transcripts and selecting their directory. |
-| Claude Code | `~/.claude/projects/` | Text/JSONL scan; honors `CLAUDE_CONFIG_DIR`. |
+| Claude Code | Repository's directory under `~/.claude/projects/` | Unreleased source 0.1.3 scopes the default and older global-root configurations to this project; explicit custom sources are retained. Honors `CLAUDE_CONFIG_DIR`; stable 0.1.2 defaults to the shared projects root. |
 | OpenAI Codex CLI | `~/.codex/sessions/` | Rollout JSONL scan; honors `CODEX_HOME`. |
 | GitHub Copilot CLI | `~/.copilot/session-state/` | Events and text artifacts; honors `COPILOT_HOME`. IDE chat storage and the CLI index database are not directly captured. |
 | Hermes Agent | `~/.hermes/state.db` | Read-only SQLite export; honors `HERMES_HOME`. Known session/message relations are used when available; other schemas are best-effort. |
@@ -143,7 +145,7 @@ Archives are ordinary, unencrypted Git content. They can contain prompts, code, 
 | DeepSeek Harness | `~/.dsh/` | JSONL and Zstandard logs; honors `DSH_HOME`. Select the actual persistence root if configured elsewhere. |
 | Custom | Repository's `.agent-sessions/source/` | Supported text exports from other tools. |
 
-Text formats include `.jsonl`, `.json`, `.md`, `.txt`, `.yaml`, and `.yml`. DeepSeek Harness also supports `.zst` and `.zstd` through the `zstandard` dependency. Discovery matches repository paths in content or encoded file paths. This is a heuristic, not a workspace isolation guarantee: once a text file matches, its full content is eligible for capture, including other projects in that file. Exports without a matching repository path can be skipped.
+Text formats include `.jsonl`, `.json`, `.md`, `.txt`, `.yaml`, and `.yml`. DeepSeek Harness also supports `.zst` and `.zstd` through the `zstandard` dependency. In unreleased source 0.1.3, Claude's default and older global-root configurations scan this repository's project directory, skip it if it does not exist yet, and include only native JSONL transcripts with an exact `cwd` match in their header. Other files in that directory are skipped; explicit custom Claude sources remain supported. Other agents may still scan shared roots and match repository paths in content or encoded file paths. Their matching is heuristic, not a workspace isolation guarantee: once a text file matches, its full content is eligible for capture, including other projects in that file. Exports without a matching repository path can be skipped.
 
 SQLite adapters export project-matched rows rather than raw database files. Unknown schemas, encrypted databases, and messages without a discoverable project relationship can result in incomplete or missing exports. Referenced binary attachments are not automatically collected. Text inputs larger than 50 MiB and databases larger than 1 GiB are skipped; decompression is also bounded. Agent storage changes can require adapter updates. Selection of an agent does not guarantee complete history capture for every product edition.
 
