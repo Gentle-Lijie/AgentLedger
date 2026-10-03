@@ -19,13 +19,13 @@ HOOK_TYPES = (
     "pre-commit", "pre-merge-commit", "pre-push", "prepare-commit-msg",
     "commit-msg", "post-commit", "post-checkout", "post-merge", "post-rewrite", "pre-rebase",
 )
-CONFIG_KEYS = ("agent-session.agent", "agent-session.source")
+CONFIG_KEYS = ("agent-session.agent", "agent-session.source", "agent-session.workdir")
 DEFAULT_CONFIG = """minimum_pre_commit_version: "3.2.0"
 default_install_hook_types: [pre-commit, post-commit]
 
 repos:
   - repo: https://github.com/Gentle-Lijie/AgentLedger
-    rev: v0.1.2
+    rev: v0.1.3
     hooks:
       - id: agent-session-commit
 """

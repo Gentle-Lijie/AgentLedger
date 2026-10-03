@@ -4,13 +4,13 @@ Incrementally archive AI coding-agent sessions in the same Git commit as your co
 
 After a successful commit, the hook adds a session bundle using `git commit --amend --no-edit`. There are no extra agent chore commits. Unchanged sessions produce no bundle and no amend.
 
-Author: Lijie Zhou · GitHub: [Gentle-Lijie/AgentLedger](https://github.com/Gentle-Lijie/AgentLedger) · Current stable PyPI release: 0.1.2. Checkout source reports 0.1.3, which is unreleased and not approved for publication.
+Author: Lijie Zhou · GitHub: [Gentle-Lijie/AgentLedger](https://github.com/Gentle-Lijie/AgentLedger) · Current stable PyPI release: 0.1.3.
 
 Version 0.1.1 restores the `agent-session-commit` distribution and command. The `v0.1.0` upload attempt under `agentledger` failed because PyPI rejected the project name; no distribution files were uploaded. That tag remains unchanged.
 
 ## Install
 
-Install release 0.1.2 from PyPI in a persistent virtual environment. Create it in a directory you will keep:
+Install release 0.1.3 from PyPI in a persistent virtual environment. Create it in a directory you will keep:
 
 ~~~sh
 python -m venv .venv-agent-session-commit
@@ -20,7 +20,7 @@ source .venv-agent-session-commit/bin/activate
 # .\.venv-agent-session-commit\Scripts\Activate.ps1
 # Windows Git Bash instead:
 # source .venv-agent-session-commit/Scripts/activate
-python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.2'
+python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.3'
 ~~~
 
 Keep that environment active when switching to the target repository. The `[pre-commit]` extra installs the pre-commit controller; `questionary` and `PyYAML` are base dependencies. Keep the installed Python environment available: installed hooks depend on it. Moving or deleting it requires reinstalling hooks with a working environment. For an editable source install, see [development setup](CONTRIBUTING.md#development-setup).
@@ -58,7 +58,7 @@ Previously committed archives and local archive state remain in place. For frame
 
 Agent Session Commit supports the [pre-commit framework](https://pre-commit.com/). The extra above installs `pre-commit` version 3.2.0 or newer; the framework installs the archive backend in an isolated Python environment.
 
-Recommended for release 0.1.2: after installing the PyPI package with `[pre-commit]` above, keep its environment active and run this in your target repository:
+Recommended for release 0.1.3: after installing the PyPI package with `[pre-commit]` above, keep its environment active and run this in your target repository:
 
 ~~~sh
 cd /absolute/path/to/target-repository
@@ -66,11 +66,11 @@ agent-session-commit install --pre-commit
 agent-session-commit status
 ~~~
 
-Use the arrow keys to select an agent, then confirm its session directory or SQLite file in the path-completion prompt. If the selected agent matches your existing local Git configuration, the prompt uses the saved source; otherwise it suggests that agent's default path. Custom and Trae export directories are created when missing. Ctrl+C cancels without changing Git configuration.
+Use the arrow keys to select an agent, then confirm its session directory or SQLite file in the path-completion prompt. The work directory is always the Git repository root shown by the installer, even if installation was started in a subdirectory. If the selected agent matches your existing local Git configuration, the prompt uses the saved source; otherwise it suggests that agent's default path. Custom and Trae export directories are created when missing. Ctrl+C cancels without changing Git configuration.
 
-In unreleased source 0.1.3, choosing Claude Code suggests this repository's Claude project directory, including when an older installation saved the global projects root. A missing Claude project directory is accepted but left for Claude to create after its first session.
+In 0.1.3, choosing Claude Code suggests this repository's Claude project directory, including when an older installation saved the global projects root. A missing Claude project directory is accepted but left for Claude to create after its first session.
 
-The helper saves `agent-session.agent` and `agent-session.source`, then calls the framework installer. pre-commit owns the hooks; the helper creates no native wrappers. If `.pre-commit-config.yaml` is missing, it generates the configuration below with the `v0.1.2` archive backend and both pre/post hook types. An existing configuration, including comments and other hooks, is preserved and must already contain `agent-session-commit` or legacy `agentledger`. If neither is present, setup stops with instructions to merge the entry yourself. All configured default hook types are installed, with `post-commit` ensured even if omitted from the YAML.
+The helper saves `agent-session.agent`, `agent-session.source`, and `agent-session.workdir`, then calls the framework installer. pre-commit owns the hooks; the helper creates no native wrappers. If `.pre-commit-config.yaml` is missing, it generates the configuration below with the `v0.1.3` archive backend and both pre/post hook types. An existing configuration, including comments and other hooks, is preserved and must already contain `agent-session-commit` or legacy `agentledger`. If neither is present, setup stops with instructions to merge the entry yourself. All configured default hook types are installed, with `post-commit` ensured even if omitted from the YAML.
 
 If native wrappers are installed, run `agent-session-commit uninstall` first; the helper instructs you to migrate and does not auto-uninstall. `core.hooksPath` must be unset so Git uses its default hook directory. A missing controller error directs you to install `[pre-commit]`; rerun the PyPI install command above in your active environment. Failed framework installation restores previous local Git settings and hook files and removes any newly generated YAML.
 
@@ -93,7 +93,7 @@ minimum_pre_commit_version: '3.2.0'
 default_install_hook_types: [pre-commit, post-commit]
 repos:
   - repo: https://github.com/Gentle-Lijie/AgentLedger
-    rev: v0.1.2
+    rev: v0.1.3
     hooks:
       - id: agent-session-commit
 ~~~
@@ -104,18 +104,19 @@ Inside that repository, activate a persistent virtual environment, configure you
 python -m pip install 'pre-commit>=3.2.0'
 git config --local agent-session.agent codex
 git config --local agent-session.source "$HOME/.codex/sessions"
+git config --local agent-session.workdir "$(git rev-parse --show-toplevel)"
 pre-commit install
 ~~~
 
 If you previously ran native `agent-session-commit install` **without `--pre-commit`**, run `agent-session-commit uninstall` **before** setting these Git values and installing pre-commit. Older installations can use `agentledger uninstall` for the same migration. Uninstall removes those values, so configure them again afterward. Let pre-commit own the hooks when using this integration; do not run the native installer alongside it.
 
-The `post-commit` stage is intentional: it archives changed sessions and amends the commit that just succeeded. Unchanged sessions cause no amend. The canonical hook ID is `agent-session-commit`, with entry `agent-session-commit hook post-commit`; the old `agentledger` hook ID remains an alias. This configuration uses the `v0.1.2` release tag. See the [integration guide](https://github.com/Gentle-Lijie/AgentLedger/blob/main/docs/precommit.md) for other agents, `CODEX_HOME`, Windows commands, migration, and a portable synthetic example.
+The `post-commit` stage is intentional: it archives changed sessions and amends the commit that just succeeded. Unchanged sessions cause no amend. The canonical hook ID is `agent-session-commit`, with entry `agent-session-commit hook post-commit`; the old `agentledger` hook ID remains an alias. This configuration uses the `v0.1.3` release tag. See the [integration guide](https://github.com/Gentle-Lijie/AgentLedger/blob/main/docs/precommit.md) for other agents, `CODEX_HOME`, Windows commands, migration, and a portable synthetic example.
 
 ### Compatibility with earlier installations
 
 The canonical PyPI distribution and command are `agent-session-commit`; the canonical Python module is `agent_session_commit`. The old `agentledger` command and module remain compatibility shims. The single version source is `src/agent_session_commit/__init__.py`.
 
-Internal names remain unchanged for existing installations: Git configuration uses `agent-session.agent` and `agent-session.source`, private state lives under Git's `agent-session-commit/` directory, and the recursion guard is `AGENT_SESSION_COMMIT_RECURSION`. Bundles still live under `.agent-sessions/`. These names do not require migration when refreshing hooks.
+Git configuration uses `agent-session.agent` and `agent-session.source`; version 0.1.3 adds `agent-session.workdir` for the repository root. Private state remains under Git's `agent-session-commit/` directory, the recursion guard remains `AGENT_SESSION_COMMIT_RECURSION`, and bundles remain under `.agent-sessions/`. Existing installations without the new key use their Git root until refreshed.
 
 ## What gets committed
 
@@ -133,21 +134,23 @@ Archives are ordinary, unencrypted Git content. They can contain prompts, code, 
 
 | Agent | Default source | Notes |
 | --- | --- | --- |
-| ZCode | `~/.zcode/cli/db/db.sqlite` | Read-only SQLite export; schema and project matching are best-effort. `ZCODE_STORAGE_DIR` and `ZCODE_DATA_BASE_DIR` are discovery overrides. |
-| Qoder | `~/.qoder/projects/` | Text/JSONL scan; honors `QODER_CONFIG_DIR`. For IDE transcripts, select their actual directory. |
+| ZCode | `~/.zcode/cli/db/db.sqlite` | Version 0.1.3 reads a known SQLite schema and recorded project directory; unknown schemas are skipped. `ZCODE_STORAGE_DIR` and `ZCODE_DATA_BASE_DIR` are discovery overrides. |
+| Qoder | `~/.qoder/projects/` | Version 0.1.3 checks bounded JSONL session metadata; honors `QODER_CONFIG_DIR`. For IDE transcripts, select their actual directory. |
 | Trae IDE | Repository's `.agent-sessions/source/` | Export conversations to supported text files first. Encrypted IDE history is not read directly. |
-| Tencent CodeBuddy | `~/.codebuddy/projects/` | CLI transcripts; honors `CODEBUDDY_CONFIG_DIR`. CodeBuddy IDE requires exported transcripts and selecting their directory. |
-| Claude Code | Repository's directory under `~/.claude/projects/` | Unreleased source 0.1.3 scopes the default and older global-root configurations to this project; explicit custom sources are retained. Honors `CLAUDE_CONFIG_DIR`; stable 0.1.2 defaults to the shared projects root. |
-| OpenAI Codex CLI | `~/.codex/sessions/` | Rollout JSONL scan; honors `CODEX_HOME`. |
-| GitHub Copilot CLI | `~/.copilot/session-state/` | Events and text artifacts; honors `COPILOT_HOME`. IDE chat storage and the CLI index database are not directly captured. |
-| Hermes Agent | `~/.hermes/state.db` | Read-only SQLite export; honors `HERMES_HOME`. Known session/message relations are used when available; other schemas are best-effort. |
-| Pi Coding Agent | `~/.pi/agent/sessions/` | JSONL scan; honors `PI_CODING_AGENT_DIR`. |
-| DeepSeek Harness | `~/.dsh/` | JSONL and Zstandard logs; honors `DSH_HOME`. Select the actual persistence root if configured elsewhere. |
+| Tencent CodeBuddy | `~/.codebuddy/projects/` | Version 0.1.3 checks bounded CLI JSONL session metadata; honors `CODEBUDDY_CONFIG_DIR`. CodeBuddy IDE requires exported transcripts. |
+| Claude Code | Repository's directory under `~/.claude/projects/` | Version 0.1.3 scopes the default and older global-root configurations to this project; explicit custom sources are retained. Honors `CLAUDE_CONFIG_DIR`; stable 0.1.2 defaults to the shared projects root. |
+| OpenAI Codex CLI | `~/.codex/sessions/` | Version 0.1.3 checks dated rollout JSONL and first-record session metadata; honors `CODEX_HOME`. |
+| GitHub Copilot CLI | `~/.copilot/session-state/` | Version 0.1.3 checks CLI `events.jsonl` session-start and optional workspace metadata; honors `COPILOT_HOME`. IDE chat and the CLI index database are not directly captured. |
+| Hermes Agent | `~/.hermes/state.db` | Version 0.1.3 reads a known SQLite session/message schema and recorded project ownership; unknown schemas are skipped. Honors `HERMES_HOME`. |
+| Pi Coding Agent | `~/.pi/agent/sessions/` | Version 0.1.3 checks native JSONL first-record project metadata; honors `PI_CODING_AGENT_DIR`. |
+| DeepSeek Harness | `~/.dsh/` | Version 0.1.3 checks canonical JSONL/Zstandard logs and bounded first-record project metadata; honors `DSH_HOME`. Select the actual persistence root if configured elsewhere. |
 | Custom | Repository's `.agent-sessions/source/` | Supported text exports from other tools. |
 
-Text formats include `.jsonl`, `.json`, `.md`, `.txt`, `.yaml`, and `.yml`. DeepSeek Harness also supports `.zst` and `.zstd` through the `zstandard` dependency. In unreleased source 0.1.3, Claude's default and older global-root configurations scan this repository's project directory, skip it if it does not exist yet, and include only native JSONL transcripts with an exact `cwd` match in their header. Other files in that directory are skipped; explicit custom Claude sources remain supported. Other agents may still scan shared roots and match repository paths in content or encoded file paths. Their matching is heuristic, not a workspace isolation guarantee: once a text file matches, its full content is eligible for capture, including other projects in that file. Exports without a matching repository path can be skipped.
+Stable 0.1.2 could match shared-root text files by repository paths in content or encoded filenames; a matched file could contain other projects. Version 0.1.3 checks adapter-specific ownership before reading session bodies. Codex, Copilot, Qoder, CodeBuddy, Pi, and DeepSeek inspect bounded session headers or project metadata and visit only recognized session artifacts. Claude's default and older global-root configurations narrow to this repository's project directory; native JSONL requires an exact `cwd` in its header, and a missing directory is skipped. Explicit custom Claude sources use the export rules below. Directory names, message text, and tool arguments do not establish ownership.
 
-SQLite adapters export project-matched rows rather than raw database files. Unknown schemas, encrypted databases, and messages without a discoverable project relationship can result in incomplete or missing exports. Referenced binary attachments are not automatically collected. Text inputs larger than 50 MiB and databases larger than 1 GiB are skipped; decompression is also bounded. Agent storage changes can require adapter updates. Selection of an agent does not guarantee complete history capture for every product edition.
+Trae and Custom accept supported text exports (`.jsonl`, `.json`, `.md`, `.txt`, `.yaml`, `.yml`) only when their first JSON record or YAML front matter declares a `cwd` resolving exactly to this repository root. This applies to repository-local and shared export folders. Plain text without such metadata is skipped. ZCode and Hermes use known read-only SQLite schemas and recorded project ownership, exporting related text rows rather than raw databases. Unknown schemas and sessions without verifiable ownership are skipped. DeepSeek's canonical compressed session logs use bounded decompression and require `zstandard`.
+
+In 0.1.3, `status` reports the number of skipped unverified candidates. Shared agent stores may still require enumerating candidate names and reading bounded metadata to find new sessions; unrelated session bodies are not read. Codex caches unchanged other-project rollout headers in Git-private state, while new and modified rollouts are checked. A zero count does not establish complete coverage: unrecognized vendor layouts may never be visited, and no adapter covers every product edition. Missing ownership fails closed. Text inputs over 50 MiB, databases over 1 GiB, and oversized decompressed content are skipped; SQLite scans and exports are also bounded. Large sources can still cost time during commit. Referenced binary attachments are not collected. Archives remain unencrypted and unredacted; review selected exports and session contents before archiving, especially in public repositories.
 
 ## Try it in a disposable repository
 

@@ -111,6 +111,7 @@ def _install(root: Path, *, framework: bool, agent: str | None, source_value: st
         configure(root, agent, source)
         print(f"Installed native hooks for {AGENTS[agent]} in {root}")
     print(f"Session source: {source}")
+    print(f"Work directory: {root.resolve()}")
 
 
 def main(argv: list[str] | None = None) -> int:

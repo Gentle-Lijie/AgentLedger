@@ -171,6 +171,32 @@ class HookIntegrationTests(unittest.TestCase):
         self.assertEqual(self._git("status", "--porcelain").stdout, "")
         self._assert_hook_count(3)
 
+    def test_commit_archives_only_sessions_started_at_git_root(self) -> None:
+        self.transcript.write_text(
+            json.dumps({"cwd": str(self.repo / "src"), "message": "nested"}) + "\n",
+            encoding="utf-8",
+        )
+        sibling = self.source / "sibling.jsonl"
+        sibling.write_text(
+            json.dumps({"cwd": str(self.repo) + "-other", "message": "other"}) + "\n",
+            encoding="utf-8",
+        )
+        self._install_hooks()
+        self.assertEqual(
+            self._git("config", "--local", "--get", "agent-session.workdir").stdout.strip(),
+            str(self.repo.resolve()),
+        )
+        self._git("commit", "--quiet", "-m", "without matching sessions")
+        self.assertEqual(self._bundles(), set())
+
+        owned = self.source / "owned.jsonl"
+        owned.write_text(self.first_line, encoding="utf-8")
+        self._git("commit", "--quiet", "--allow-empty", "-m", "with matching session")
+        bundle, = self._bundles()
+        with tarfile.open(bundle, "r:gz") as archive:
+            manifest = json.load(archive.extractfile("manifest.json"))
+        self.assertEqual([item["path"] for item in manifest["files"]], [owned.name])
+
     def test_pathspec_commit_preserves_other_staged_and_unstaged_changes(self) -> None:
         self._install_hooks()
         for name in ("partial.txt", "unstaged.txt"):

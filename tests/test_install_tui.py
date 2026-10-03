@@ -137,6 +137,7 @@ class InstallTuiTests(unittest.TestCase):
         self.path.return_value.ask.return_value = "session exports"
         self.assertEqual(self.run_cli("install")[0], 0)
         self.assertEqual(self.git("config", "--local", "agent-session.source"), str(source))
+        self.assertEqual(self.git("config", "--local", "agent-session.workdir"), str(self.repo))
         self.assertFalse((nested / "session exports").exists())
 
     def test_missing_agent_source_and_regular_text_file_are_rejected_without_changes(self) -> None:

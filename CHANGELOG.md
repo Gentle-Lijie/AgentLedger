@@ -2,10 +2,14 @@
 
 Changes are recorded before publication. Versions come from `__version__` in `src/agent_session_commit/__init__.py`; release tags use the exact form `v<version>`.
 
-## 0.1.3 — Unreleased (not approved for publication)
+## 0.1.3 — 2026-10-04
 
 ### Changed
 
+- Installation records the Git repository root as the work directory. The post-commit hook verifies that setting and archives only sessions whose recorded `cwd` resolves to that exact root; child and neighboring directories are excluded.
+- All provider adapters check session ownership before reading or exporting bodies. Repository-local Trae and Custom exports now also require explicit top-level `cwd` metadata (JSON or YAML front matter); unmarked text exports are skipped.
+- Codex keeps a private cache of unchanged other-project rollout headers under Git state, so later commits avoid reopening those files. New or modified rollouts are checked against their recorded `cwd`.
+- The generated and example pre-commit configurations now pin the `v0.1.3` backend.
 - Claude Code now defaults to this repository's directory under `~/.claude/projects/` (or `CLAUDE_CONFIG_DIR/projects/`). Existing installations configured with the global Claude projects root are narrowed to that directory at runtime; explicitly selected custom sources remain supported.
 - A Claude project directory that does not exist yet is skipped without creating it. Native Claude JSONL files require an exact `cwd` match in their header; other files are skipped even if a directory-name collision or a message mentions this repository.
 - Reuse legacy Claude fingerprints after narrowing the source so unchanged transcripts are not archived again.

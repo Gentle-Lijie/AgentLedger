@@ -2,7 +2,7 @@
 
 Maintainer: Lijie Zhou · Repository: [Gentle-Lijie/AgentLedger](https://github.com/Gentle-Lijie/AgentLedger).
 
-The current stable PyPI release is `agent-session-commit` version `0.1.2`, published on 2026-09-29. Checkout source reports `0.1.3`, which is unreleased and not approved for publication. The `v0.1.0` attempt under `agentledger` failed because PyPI rejected the project name as too similar to an existing project; no distribution files were uploaded. Keep the immutable public `v0.1.0` tag unchanged. Version `0.1.1` restored the selected distribution name and was published on PyPI. Creating the public repository and pushing source does **not** publish the package. Push a release tag only after publication is approved and the prerequisites are complete.
+The current stable PyPI release is `agent-session-commit` version `0.1.3`, published on 2026-10-04. The `v0.1.0` attempt under `agentledger` failed because PyPI rejected the project name as too similar to an existing project; no distribution files were uploaded. Keep the immutable public `v0.1.0` tag unchanged. Version `0.1.1` restored the selected distribution name and was published on PyPI. Creating the public repository and pushing source does **not** publish the package. Push a release tag only after publication is approved and the prerequisites are complete.
 
 This document defines the CI contract. Before tagging, confirm the workflows and packaging configuration implement it; documentation alone does not enable publishing.
 
@@ -13,7 +13,7 @@ This document defines the CI contract. Before tagging, confirm the workflows and
 | Branch push or pull request | Build a wheel and test it installed on macOS, Linux, Windows × Python 3.10, 3.14. | None. |
 | Push of a tag matching `v*` | Run `.github/workflows/release.yml`: validate exact version tag, build wheel/sdist, validate artifacts, pass the same installed-wheel matrix. | Publish to PyPI, then create a GitHub Release with wheel and sdist assets. |
 
-Reject tags that are not exactly `v` followed by `__version__` from `src/agent_session_commit/__init__.py`. The tag must match the approved release version; the current source version `0.1.3` has not been approved. Package metadata must derive its version from that file; both distribution versions must match. Arbitrary tags matching the broad `v*` trigger must fail before any upload.
+Reject tags that are not exactly `v` followed by `__version__` from `src/agent_session_commit/__init__.py`. The tag must match the approved release version; the source version must be approved. Package metadata must derive its version from that file; both distribution versions must match. Arbitrary tags matching the broad `v*` trigger must fail before any upload.
 
 Build artifacts once for the tagged revision and pass the same artifacts through checks, tests, publishing, and release attachments. Validate metadata with `twine check --strict`, inspect contents for required metadata/license and accidental private files, and check expected package name/version. A failed check or matrix job blocks publication. Confirm the sdist's packaged source can build a wheel as part of artifact validation.
 
@@ -32,7 +32,7 @@ Select `environment: pypi` in the publishing job if using that environment's sec
 1. Confirm the checkout remote targets `https://github.com/Gentle-Lijie/AgentLedger.git`. Source pushes are permitted preparation; the tag is the separate publication trigger.
 2. Confirm the PyPI distribution name is available or owned by the maintainer. A missing project page or JSON API 404 does not guarantee registration: PyPI can reject names that are too similar to an existing project. The distribution name may differ from the command and Python module; for this release the selected distribution and CLI are both `agent-session-commit`, and the module is `agent_session_commit`. See [PyPI's project-name policy](https://pypi.org/help/#project-name).
 3. Include the actual license file in source and artifacts, and set package author to Lijie Zhou. The intended license is MIT; a metadata label alone is not a license file.
-4. Confirm canonical distribution and CLI names are `agent-session-commit` and the module is `agent_session_commit`, with the approved release version derived only from `src/agent_session_commit/__init__.py`. Preserve the `agentledger` CLI/module shims, old hook alias, and internal names described in [README.md](../README.md). Confirm generated and example pre-commit configurations use the intended published tag and `id: agent-session-commit`; they currently remain pinned to stable `v0.1.2`.
+4. Confirm canonical distribution and CLI names are `agent-session-commit` and the module is `agent_session_commit`, with the approved release version derived only from `src/agent_session_commit/__init__.py`. Preserve the `agentledger` CLI/module shims, old hook alias, and internal names described in [README.md](../README.md). Confirm generated and example pre-commit configurations use the intended published tag and `id: agent-session-commit`; they currently remain pinned to stable `v0.1.3`.
 5. Implement/review the CI contract and confirm branch CI passes all six installed-wheel jobs.
 6. Configure the target repository's publishing secret or its `pypi` environment. Enable Actions and review deployment rules for version tags.
 7. Private vulnerability reporting is enabled; confirm the [private reporting link](https://github.com/Gentle-Lijie/AgentLedger/security/advisories/new) remains available. Review [SECURITY.md](../SECURITY.md), [README.md](../README.md), and [CHANGELOG.md](../CHANGELOG.md); record the approved release date when preparing a new release.
@@ -92,12 +92,12 @@ git push origin "v$release_version"
 Follow the tag run in Actions. After success, verify PyPI and the GitHub Release, including attached distributions. In a fresh persistent virtual environment:
 
 ~~~sh
-python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.2'
+python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.3'
 python -c "from agent_session_commit import __version__; print(__version__)"
 agent-session-commit --help
 ~~~
 
-The pinned command above checks the current stable 0.1.2 publication. For a newly approved release, install its published version in a fresh environment and verify that version and its intended generated pre-commit tag. In a disposable repository, check `agent-session-commit install --pre-commit` for the TUI. Native `agent-session-commit install` is also supported; upstream `pre-commit install` does not trigger the wizard.
+The pinned command above checks the current stable 0.1.3 publication. For a newly approved release, install its published version in a fresh environment and verify that version and its intended generated pre-commit tag. In a disposable repository, check `agent-session-commit install --pre-commit` for the TUI. Native `agent-session-commit install` is also supported; upstream `pre-commit install` does not trigger the wizard.
 
 For a failure before upload, resolve its cause. Configuration-only fixes may allow rerunning the tagged revision; code fixes require a newly reviewed revision and version. Avoid moving public tags.
 

@@ -5,7 +5,6 @@ import json
 import os
 import re
 import shlex
-import sqlite3
 import subprocess
 import sys
 import tarfile
@@ -13,7 +12,6 @@ import tempfile
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote, unquote, urlparse
 
 AGENTS = {
     "zcode": "ZCode",
@@ -30,11 +28,6 @@ AGENTS = {
 }
 HOOK_BEGIN = "# >>> agent-session-commit >>>"
 HOOK_END = "# <<< agent-session-commit <<<"
-TEXT_SUFFIXES = {".jsonl", ".json", ".md", ".txt", ".yaml", ".yml"}
-COMPRESSED_SUFFIXES = {".zst", ".zstd"}
-MAX_FILE_SIZE = 50 * 1024 * 1024
-MAX_DATABASE_SIZE = 1024 * 1024 * 1024
-CLAUDE_HEADER_BYTES = 1024 * 1024
 
 
 def claude_project_source(root: Path, projects_root: Path | None = None) -> Path:
@@ -116,8 +109,12 @@ def _shell_path(path: Path) -> str:
 
 
 def save_configuration(root: Path, agent: str, source: Path) -> None:
+    # Git executes hooks from the repository root, regardless of the shell
+    # directory from which the user invoked git commit.
+    workdir = root.resolve()
     _git(root, "config", "--local", "agent-session.agent", agent)
     _git(root, "config", "--local", "agent-session.source", str(source))
+    _git(root, "config", "--local", "agent-session.workdir", str(workdir))
 
 
 def configure(root: Path, agent: str, source: Path) -> None:
@@ -173,180 +170,7 @@ def uninstall(root: Path) -> None:
             hook_path.unlink()
     _git(root, "config", "--local", "--unset", "agent-session.agent", check=False)
     _git(root, "config", "--local", "--unset", "agent-session.source", check=False)
-
-
-def _claude_session_owned_by(path: Path, root: Path) -> bool:
-    """Admit a native Claude transcript only when its header identifies this cwd."""
-    canonical_root = root.resolve()
-    try:
-        with path.open("rb") as stream:
-            header = stream.read(CLAUDE_HEADER_BYTES)
-    except OSError:
-        return False
-    for line in header.splitlines():
-        try:
-            record = json.loads(line)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            continue
-        if not isinstance(record, dict) or not isinstance(record.get("cwd"), str):
-            continue
-        candidate = Path(record["cwd"])
-        try:
-            if candidate.is_absolute() and candidate.resolve(strict=False) == canonical_root:
-                return True
-        except (OSError, RuntimeError):
-            continue
-    return False
-
-
-def _session_candidates(source: Path, root: Path) -> list[tuple[Path, bytes]]:
-    selected_agent = _config(root, "agent-session.agent")
-    native_claude_source = (
-        selected_agent == "claude"
-        and source.parent.name == "projects"
-        and source.name == claude_project_source(root).name
-    )
-    root_forms = {
-        str(root).replace("\\", "/").casefold(),
-        str(root).replace("/", "\\").casefold(),
-        quote(str(root).replace("\\", "/"), safe="").casefold(),
-        json.dumps(str(root), ensure_ascii=False)[1:-1].casefold(),
-        root.as_uri().casefold(),
-        str(root).replace("/", "-").replace("\\", "-").casefold(),
-    }
-    found: list[tuple[Path, bytes]] = []
-    def matching(payload: bytes) -> bool:
-        if b"\x00" in payload:
-            return False
-        raw_text = payload.decode("utf-8", errors="ignore")
-        text = raw_text.casefold()
-        if any(form and form in text for form in root_forms):
-            return True
-
-        def contains_root(value: object) -> bool:
-            if isinstance(value, dict):
-                return any(contains_root(item) for item in value.values())
-            if isinstance(value, list):
-                return any(contains_root(item) for item in value)
-            if not isinstance(value, str):
-                return False
-            candidate_text = value.strip()
-            if candidate_text.casefold().startswith("file://"):
-                candidate_text = unquote(urlparse(candidate_text).path)
-            candidate = Path(candidate_text).expanduser()
-            try:
-                return candidate.is_absolute() and candidate.resolve(strict=False) == root
-            except (OSError, RuntimeError):
-                return False
-
-        for line in raw_text.splitlines():
-            try:
-                if contains_root(json.loads(line)):
-                    return True
-            except json.JSONDecodeError:
-                continue
-        return False
-
-    def sqlite_project_export(path: Path) -> bytes | None:
-        uri = path.resolve().as_uri() + "?mode=ro"
-        records: list[str] = []
-        try:
-            with sqlite3.connect(uri, uri=True, timeout=2) as db:
-                tables = db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-                table_names = {name for (name,) in tables}
-                if _config(root, "agent-session.agent") == "hermes" and {"sessions", "messages"}.issubset(table_names):
-                    session_columns = [row[1] for row in db.execute('PRAGMA table_info("sessions")')]
-                    message_columns = [row[1] for row in db.execute('PRAGMA table_info("messages")')]
-                    if "id" in session_columns and "session_id" in message_columns:
-                        session_projection = ", ".join('"' + col.replace('"', '""') + '"' for col in session_columns)
-                        message_projection = ", ".join('"' + col.replace('"', '""') + '"' for col in message_columns)
-                        for values in db.execute(f'SELECT {session_projection} FROM "sessions"'):
-                            session = dict(zip(session_columns, values))
-                            serialized = json.dumps(session, ensure_ascii=False, default=str)
-                            if not any(form and form in serialized.casefold() for form in root_forms):
-                                continue
-                            records.append(json.dumps({"table": "sessions", "record": session}, ensure_ascii=False, default=str))
-                            for message_values in db.execute(
-                                f'SELECT {message_projection} FROM "messages" WHERE "session_id" = ?',
-                                (session["id"],),
-                            ):
-                                message = dict(zip(message_columns, message_values))
-                                records.append(json.dumps({"table": "messages", "record": message}, ensure_ascii=False, default=str))
-                        if records:
-                            return ("\n".join(records) + "\n").encode("utf-8")
-                for (table,) in tables:
-                    if table.startswith("sqlite_"):
-                        continue
-                    quoted_table = '"' + table.replace('"', '""') + '"'
-                    columns = [row[1] for row in db.execute(f"PRAGMA table_info({quoted_table})")]
-                    if not columns:
-                        continue
-                    quoted_columns = ", ".join('"' + name.replace('"', '""') + '"' for name in columns)
-                    try:
-                        rows = db.execute(f"SELECT {quoted_columns} FROM {quoted_table}")
-                        for row in rows:
-                            serializable = [value.decode("utf-8", "ignore") if isinstance(value, bytes) else value for value in row]
-                            record = {"table": table, "columns": columns, "values": serializable}
-                            raw = json.dumps(record, ensure_ascii=False, default=str)
-                            if matching(raw.encode("utf-8")):
-                                records.append(raw)
-                    except sqlite3.DatabaseError:
-                        continue
-        except (sqlite3.DatabaseError, OSError):
-            return None
-        if not records:
-            return None
-        return ("\n".join(records) + "\n").encode("utf-8")
-
-    try:
-        paths = [source] if source.is_file() else source.rglob("*")
-        for path in paths:
-            if not path.is_file():
-                continue
-            try:
-                suffix = path.suffix.casefold()
-                limit = MAX_DATABASE_SIZE if suffix in {".db", ".sqlite", ".sqlite3"} else MAX_FILE_SIZE
-                if path.stat().st_size > limit:
-                    continue
-            except OSError:
-                continue
-            if suffix in {".db", ".sqlite", ".sqlite3"} and selected_agent in {"zcode", "hermes"}:
-                payload = sqlite_project_export(path)
-                if payload:
-                    virtual_path = path.with_name(path.name + ".project-sessions.jsonl")
-                    found.append((virtual_path, payload))
-            elif suffix in TEXT_SUFFIXES:
-                if native_claude_source and (suffix != ".jsonl" or not _claude_session_owned_by(path, root)):
-                    continue
-                payload = path.read_bytes()
-                encoded_root = str(root).replace("/", "-").replace("\\", "-").casefold()
-                path_text = str(path).replace("\\", "/").casefold()
-                # Claude's slug is not unique: e.g. /a-b and /a/b collide.
-                # Require transcript content to identify the repository.
-                if native_claude_source or matching(payload) or (selected_agent != "claude" and encoded_root and encoded_root in path_text):
-                    found.append((path, payload))
-            elif suffix in COMPRESSED_SUFFIXES and selected_agent == "deepseek-harness":
-                try:
-                    import zstandard
-                except ImportError:
-                    continue
-                try:
-                    # Harness appends separate checksummed frames, so decode
-                    # across all frames while bounding decompressed input.
-                    with path.open("rb") as raw, zstandard.ZstdDecompressor().stream_reader(
-                        raw, read_across_frames=True
-                    ) as reader:
-                        payload = reader.read(MAX_FILE_SIZE + 1)
-                except (OSError, zstandard.ZstdError):
-                    continue
-                if len(payload) > MAX_FILE_SIZE:
-                    continue
-                if matching(payload):
-                    virtual_path = path.with_name(path.name + ".decompressed.jsonl")
-                    found.append((virtual_path, payload))
-    except OSError:
-        return []
-    return found
+    _git(root, "config", "--local", "--unset", "agent-session.workdir", check=False)
 
 
 def _state_file(root: Path) -> Path:
@@ -468,11 +292,22 @@ def _effective_source(root: Path, agent: str | None, source: Path) -> Path:
     return source
 
 
-def _scan(root: Path) -> list[tuple[Path, bytes]]:
+def _scan(root: Path, *, report_skips: bool = False) -> list[tuple[Path, bytes]]:
     configured = _config(root, "agent-session.source")
     if not configured:
         raise RuntimeError("Not installed. Run `agent-session-commit install` first.")
     agent = _config(root, "agent-session.agent")
+    configured_workdir = _config(root, "agent-session.workdir")
+    if configured_workdir:
+        workdir = Path(configured_workdir).expanduser()
+        if not workdir.is_absolute() or workdir.resolve() != root.resolve():
+            raise RuntimeError(
+                "Configured work directory does not match this Git repository. "
+                "Run `agent-session-commit install` again in this checkout."
+            )
+    # Legacy installations have no explicit key; the containing Git root is
+    # still the only admissible work directory.
+    workdir = root.resolve()
     source = _effective_source(root, agent, Path(configured).expanduser().resolve())
     if not source.exists():
         if agent == "claude" and source.parent.name == "projects" and source.name == claude_project_source(root).name:
@@ -481,7 +316,43 @@ def _scan(root: Path) -> list[tuple[Path, bytes]]:
         raise RuntimeError(f"Configured session source is unavailable: {source}")
     if not source.is_dir() and source.suffix.casefold() not in {".db", ".sqlite", ".sqlite3"}:
         raise RuntimeError(f"Configured session source is not a directory or SQLite file: {source}")
-    return _session_candidates(source, root)
+    if agent == "claude":
+        from .adapters.claude import scan_claude
+        result = scan_claude(source, workdir, project_slug=claude_project_source(workdir).name)
+    elif agent in {"custom", "trae"}:
+        from .adapters.exports import scan_exports
+        result = scan_exports(source, workdir)
+    elif agent == "codex":
+        from .adapters.codex_copilot import scan_codex
+        result = scan_codex(source, workdir,
+                            cache_path=_git_path(root, "agent-session-commit/codex-candidates.json"))
+    elif agent == "copilot":
+        from .adapters.codex_copilot import scan_copilot
+        result = scan_copilot(source, workdir)
+    elif agent == "zcode":
+        from .adapters.sqlite_agents import scan_zcode
+        result = scan_zcode(source, workdir)
+    elif agent == "hermes":
+        from .adapters.sqlite_agents import scan_hermes
+        result = scan_hermes(source, workdir)
+    elif agent == "pi":
+        from .adapters.pi_deepseek import scan_pi
+        result = scan_pi(source, workdir)
+    elif agent == "deepseek-harness":
+        from .adapters.pi_deepseek import scan_deepseek
+        result = scan_deepseek(source, workdir)
+    elif agent == "qoder":
+        from .adapters.qoder_codebuddy import scan_qoder
+        result = scan_qoder(source, workdir)
+    elif agent == "codebuddy":
+        from .adapters.qoder_codebuddy import scan_codebuddy
+        result = scan_codebuddy(source, workdir)
+    else:
+        raise RuntimeError(f"Unknown configured agent: {agent!r}")
+    if report_skips and result.skipped_unverified:
+        print(f"agent-session-commit: ignored {result.skipped_unverified} other-project or unverifiable session candidate(s).",
+              file=sys.stderr)
+    return result.sessions
 
 
 def status(root: Path) -> None:
@@ -490,7 +361,7 @@ def status(root: Path) -> None:
     if not agent or not source:
         print("Agent Session Commit is not installed in this repository.")
         return
-    sessions = _scan(root)
+    sessions = _scan(root, report_skips=True)
     source_path = Path(source).resolve()
     effective_source = _effective_source(root, agent, source_path)
     source_base = source_path.parent if source_path.is_file() else source_path
@@ -510,6 +381,7 @@ def status(root: Path) -> None:
         if not digest_matches(prior, hashlib.sha256(payload).hexdigest()):
             pending += 1
     print(f"Agent: {AGENTS.get(agent, agent)}")
+    print(f"Work directory: {root.resolve()}")
     print(f"Source: {effective_source}")
     print(f"Project session files found: {len(sessions)} ({pending} changed)")
 
