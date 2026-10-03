@@ -7,6 +7,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -31,7 +32,7 @@ class SQLiteAgentAdaptersTests(unittest.TestCase):
         return [json.loads(line) for line in payload.splitlines()]
 
     def make_hermes(self) -> None:
-        with sqlite3.connect(self.db_path) as db:
+        with closing(sqlite3.connect(self.db_path)) as db, db:
             db.executescript("""
                 CREATE TABLE sessions (
                     id TEXT PRIMARY KEY, cwd TEXT, git_repo_root TEXT,
@@ -61,7 +62,7 @@ class SQLiteAgentAdaptersTests(unittest.TestCase):
             db.execute("INSERT INTO secrets VALUES ('token', ?)", (str(self.root),))
 
     def make_zcode(self) -> None:
-        with sqlite3.connect(self.db_path) as db:
+        with closing(sqlite3.connect(self.db_path)) as db, db:
             db.executescript("""
                 CREATE TABLE session (
                     id TEXT PRIMARY KEY, directory TEXT, title TEXT, api_key TEXT
@@ -117,7 +118,7 @@ class SQLiteAgentAdaptersTests(unittest.TestCase):
             self.assertNotIn(excluded, payload)
 
     def test_unknown_schema_fails_closed(self) -> None:
-        with sqlite3.connect(self.db_path) as db:
+        with closing(sqlite3.connect(self.db_path)) as db, db:
             db.execute("CREATE TABLE arbitrary (prompt TEXT)")
             db.execute("INSERT INTO arbitrary VALUES (?)", (f"mentions {self.root}",))
         for scanner in (sqlite_agents.scan_zcode, sqlite_agents.scan_hermes):
