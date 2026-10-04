@@ -8,6 +8,7 @@ import re
 import tempfile
 from pathlib import Path
 from typing import Iterator
+from urllib.parse import unquote, urlparse
 
 import yaml
 
@@ -192,4 +193,109 @@ def scan_copilot(source: Path, root: Path) -> ScanResult:
             result.skipped_unverified += 1
         else:
             result.sessions.append((events, body))
+    return result
+
+
+def _uri_path(value: str) -> Path | None:
+    if not value.casefold().startswith("file://"):
+        return None
+    path = unquote(urlparse(value).path)
+    if os.name == "nt" and re.match(r"^/[A-Za-z]:/", path):
+        path = path[1:]
+    return Path(path)
+
+
+def _bounded_json(path: Path) -> object | None:
+    """Parse a small JSON document without following links or huge files."""
+    if path.is_symlink() or not path.is_file():
+        return None
+    try:
+        if path.stat().st_size > _METADATA_BYTES:
+            return None
+        with path.open("rb") as stream:
+            raw = stream.read(_METADATA_BYTES + 1)
+        if len(raw) > _METADATA_BYTES:
+            return None
+        return json.loads(raw)
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+
+
+def _saved_workspace_folders(reference: str) -> list[str]:
+    """Resolve the folder list recorded by a ``.code-workspace`` file."""
+    target = _uri_path(reference)
+    if target is None:
+        return []
+    document = _bounded_json(target)
+    entries = document.get("folders") if isinstance(document, dict) else None
+    if not isinstance(entries, list):
+        return []
+    folders: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        uri = entry.get("uri")
+        if isinstance(uri, str) and uri:
+            folders.append(uri)
+            continue
+        path = entry.get("path")
+        if isinstance(path, str) and path:
+            candidate = Path(os.path.expanduser(path))
+            folders.append(str(candidate if candidate.is_absolute() else target.parent / candidate))
+    return folders
+
+
+def _workspace_folders(path: Path) -> list[str]:
+    """Folder URIs or paths a storage directory claims, or [] when unusable."""
+    document = _bounded_json(path)
+    if not isinstance(document, dict):
+        return []
+    folders: list[str] = []
+    folder = document.get("folder")
+    if isinstance(folder, str) and folder:
+        folders.append(folder)
+    reference = document.get("workspace")
+    if isinstance(reference, str) and reference:
+        folders.extend(_saved_workspace_folders(reference))
+    return folders
+
+
+def _jsonl_session_id_matches(path: Path, expected: str) -> bool:
+    """Agree with the first session snapshot's ID when the record carries one."""
+    for record in read_jsonl_header(path, line_limit=4):
+        if record.get("kind") != 0:
+            continue
+        session = record.get("v")
+        session_id = session.get("sessionId") if isinstance(session, dict) else None
+        if session_id is None:
+            return True
+        return isinstance(session_id, str) and session_id.casefold() == expected.casefold()
+    return True
+
+
+def scan_copilot_vscode(source: Path, root: Path) -> ScanResult:
+    """Read chat sessions only when their workspace folder owns this repo."""
+    result = ScanResult()
+    storage = source if source.name == "workspaceStorage" else source / "workspaceStorage"
+    for directory in _children(storage):
+        folders = _workspace_folders(directory / "workspace.json")
+        if not any(belongs_to_repo(folder, root) for folder in folders):
+            # Other workspaces and unattributable empty-window storage are
+            # skipped silently; they are workspace candidates, not sessions.
+            continue
+        for path in _children(directory / "chatSessions"):
+            match = _SESSION_ID.fullmatch(path.stem)
+            if not match or path.suffix.casefold() not in {".json", ".jsonl"}:
+                continue
+            if path.is_symlink() or not path.is_file():
+                result.skipped_unverified += 1
+                continue
+            if path.suffix.casefold() == ".jsonl" and not _jsonl_session_id_matches(path, match.group(0)):
+                result.skipped_unverified += 1
+                continue
+            body = read_session_bytes(path)
+            if body is None:
+                result.skipped_unverified += 1
+            else:
+                result.sessions.append((path, body))
     return result

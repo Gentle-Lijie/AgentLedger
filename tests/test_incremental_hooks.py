@@ -272,7 +272,8 @@ class HookIntegrationTests(unittest.TestCase):
 
     def test_all_requested_agents_are_selectable(self) -> None:
         self.assertTrue({"zcode", "qoder", "trae", "codebuddy", "claude", "codex",
-                         "copilot", "hermes", "pi", "deepseek-harness"}.issubset(AGENTS))
+                         "copilot", "copilot-vscode", "hermes", "pi",
+                         "deepseek-harness"}.issubset(AGENTS))
 
 
 if __name__ == "__main__":

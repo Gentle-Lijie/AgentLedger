@@ -21,6 +21,7 @@ AGENTS = {
     "claude": "Claude Code",
     "codex": "OpenAI Codex CLI",
     "copilot": "GitHub Copilot CLI",
+    "copilot-vscode": "GitHub Copilot VSCode",
     "hermes": "Hermes Agent",
     "pi": "Pi Coding Agent",
     "deepseek-harness": "DeepSeek Harness",
@@ -69,6 +70,17 @@ def default_source(agent: str, root: Path | None = None) -> Path | None:
     if agent == "copilot":
         base = Path(os.environ.get("COPILOT_HOME", home / ".copilot")).expanduser()
         return base / "session-state"
+    if agent == "copilot-vscode":
+        override = os.environ.get("COPILOT_VSCODE_HOME")
+        if override:
+            base = Path(override).expanduser()
+        elif os.name == "nt":
+            base = Path(os.environ.get("APPDATA", home / "AppData" / "Roaming")) / "Code" / "User"
+        elif sys.platform == "darwin":
+            base = home / "Library" / "Application Support" / "Code" / "User"
+        else:
+            base = home / ".config" / "Code" / "User"
+        return base / "workspaceStorage"
     if agent == "hermes":
         base = Path(os.environ.get("HERMES_HOME", home / ".hermes")).expanduser()
         return base / "state.db"
@@ -329,6 +341,9 @@ def _scan(root: Path, *, report_skips: bool = False) -> list[tuple[Path, bytes]]
     elif agent == "copilot":
         from .adapters.codex_copilot import scan_copilot
         result = scan_copilot(source, workdir)
+    elif agent == "copilot-vscode":
+        from .adapters.codex_copilot import scan_copilot_vscode
+        result = scan_copilot_vscode(source, workdir)
     elif agent == "zcode":
         from .adapters.sqlite_agents import scan_zcode
         result = scan_zcode(source, workdir)

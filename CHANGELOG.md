@@ -2,6 +2,16 @@
 
 Changes are recorded before publication. Versions come from `__version__` in `src/agent_session_commit/__init__.py`; release tags use the exact form `v<version>`.
 
+## 0.1.4 — 2026-10-04
+
+### Added
+
+- `copilot-vscode` agent for GitHub Copilot Chat sessions written by the VSCode extension. The default source is the editor's `workspaceStorage` directory (`COPILOT_VSCODE_HOME` overrides its `User` root). A storage entry is considered only when its `workspace.json` names this repository — directly as `folder`, or through a `.code-workspace` file's `folders` list — and only `<uuid>.json`/`<uuid>.jsonl` chat sessions under its `chatSessions` directory are read. The new JSONL snapshots must agree with their filename session ID when they record one. Sessions from other workspaces and empty-window chats are not visited.
+
+### Changed
+
+- The generated and example pre-commit configurations pin the `v0.1.4` backend.
+
 ## 0.1.3 — 2026-10-04
 
 ### Changed

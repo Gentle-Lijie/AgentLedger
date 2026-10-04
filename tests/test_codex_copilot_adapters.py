@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from agent_session_commit import core
 from agent_session_commit.adapters import codex_copilot
 from agent_session_commit.adapters.common import MAX_SESSION_BYTES
 
@@ -222,6 +224,162 @@ class ScannerTests(unittest.TestCase):
         self.assertEqual(result.sessions, [])
         self.assertEqual(result.skipped_unverified, 2)
         self.assertEqual(calls, [huge])
+
+
+class CopilotVscodeScannerTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name)
+        self.repo = self.base / "my repo"
+        self.repo.mkdir()
+        self.other = self.base / "other repo"
+        self.other.mkdir()
+        self.vscode = self.base / "vscode" / "User" / "workspaceStorage"
+
+    def entry(self, folder: object, *, name: str = "a", session_id: str = SESSION_ID,
+              ext: str = ".jsonl", first: dict | None = None,
+              body: bytes | None = None) -> tuple[Path, bytes]:
+        storage = self.vscode / name
+        chat = storage / "chatSessions"
+        chat.mkdir(parents=True, exist_ok=True)
+        workspace = folder if isinstance(folder, str) else json.dumps(folder)
+        (storage / "workspace.json").write_text(workspace, encoding="utf-8")
+        path = chat / f"{session_id}{ext}"
+        if body is None:
+            if ext == ".jsonl":
+                record = first if first is not None else {"kind": 0, "v": {
+                    "sessionId": session_id, "requests": []}}
+                body = (json.dumps(record) + "\n" + json.dumps({"kind": 2, "v": {
+                    "text": f"mentions {self.other} and {self.repo}"}}) + "\n").encode()
+            else:
+                document = first if first is not None else {"sessionId": session_id, "requests": []}
+                body = json.dumps(document).encode()
+        path.write_bytes(body)
+        return path, body
+
+    def test_accepts_json_and_jsonl_from_user_root_parent(self) -> None:
+        json_path, json_body = self.entry({"folder": f"file://{self.repo}"}, name="a", ext=".json")
+        jsonl_path, jsonl_body = self.entry({"folder": f"file://{self.repo}"}, name="b", ext=".jsonl")
+        result = codex_copilot.scan_copilot_vscode(self.vscode.parent, self.repo)
+        self.assertEqual(result.sessions, [(json_path, json_body), (jsonl_path, jsonl_body)])
+        self.assertEqual(result.skipped_unverified, 0)
+
+    def test_accepts_multi_root_code_workspace_reference(self) -> None:
+        workspace_file = self.base / "team.code-workspace"
+        workspace_file.write_text(json.dumps({"folders": [
+            {"uri": f"file://{self.other}"},
+            {"path": str(self.repo)},
+        ]}), encoding="utf-8")
+        path, body = self.entry({"workspace": f"file://{workspace_file}"})
+        result = codex_copilot.scan_copilot_vscode(self.vscode, self.repo)
+        self.assertEqual(result.sessions, [(path, body)])
+
+    def test_rejects_other_project_and_unattributable_storage_before_body_read(self) -> None:
+        self.entry({"folder": f"file://{self.other}"})
+        self.entry({"folder": "vscode-remote://ssh-remote%2Bvm/home/zlj"}, name="b")
+        storage = self.vscode / "c"
+        (storage / "chatSessions").mkdir(parents=True)
+        (storage / "workspace.json").write_text("not json", encoding="utf-8")
+        (storage / "chatSessions" / f"{SESSION_ID}.jsonl").write_bytes(b"{}")
+        with patch.object(codex_copilot, "read_session_bytes", side_effect=AssertionError("body read")):
+            result = codex_copilot.scan_copilot_vscode(self.vscode, self.repo)
+        self.assertEqual(result.sessions, [])
+        self.assertEqual(result.skipped_unverified, 0)
+
+    def test_rejects_nested_workspace_folder(self) -> None:
+        self.entry({"folder": f"file://{self.repo / 'src'}"})
+        self.assertEqual(codex_copilot.scan_copilot_vscode(self.vscode, self.repo).sessions, [])
+
+    def test_jsonl_session_id_must_agree_with_filename(self) -> None:
+        second_id = "12345678-1234-1234-1234-123456789abd"
+        self.entry({"folder": f"file://{self.repo}"},
+                   first={"kind": 0, "v": {"sessionId": second_id, "requests": []}})
+        with patch.object(codex_copilot, "read_session_bytes", side_effect=AssertionError("body read")):
+            result = codex_copilot.scan_copilot_vscode(self.vscode, self.repo)
+        self.assertEqual(result.sessions, [])
+        self.assertEqual(result.skipped_unverified, 1)
+        self.entry({"folder": f"file://{self.repo}"}, name="b",
+                   first={"kind": 0, "v": {"requests": []}})
+        self.assertEqual(len(codex_copilot.scan_copilot_vscode(self.vscode, self.repo).sessions), 1)
+
+    def test_ignores_artifacts_and_rejects_linked_sessions(self) -> None:
+        path, _ = self.entry({"folder": f"file://{self.repo}"})
+        chat = path.parent
+        (chat / "notes.md").write_text(str(self.repo), encoding="utf-8")
+        (chat / f"{SESSION_ID}.txt").write_text(str(self.repo), encoding="utf-8")
+        (chat / "random.jsonl").write_text(str(self.repo), encoding="utf-8")
+        path.unlink()
+        external = self.base / "poison.json"
+        external.write_text(str(self.repo), encoding="utf-8")
+        try:
+            path.symlink_to(external)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        with patch.object(codex_copilot, "read_session_bytes", side_effect=AssertionError("body read")):
+            result = codex_copilot.scan_copilot_vscode(self.vscode, self.repo)
+        self.assertEqual(result.sessions, [])
+        self.assertEqual(result.skipped_unverified, 1)
+
+    def test_oversized_session_is_skipped(self) -> None:
+        huge, _ = self.entry({"folder": f"file://{self.repo}"})
+        with huge.open("ab") as stream:
+            stream.truncate(MAX_SESSION_BYTES + 1)
+        self.assertEqual(codex_copilot.scan_copilot_vscode(self.vscode, self.repo).sessions, [])
+        self.assertEqual(codex_copilot.scan_copilot_vscode(self.vscode, self.repo).skipped_unverified, 1)
+
+    def test_unusable_code_workspace_reference_is_ignored(self) -> None:
+        self.entry({"workspace": f"file://{self.base / 'missing.code-workspace'}"})
+        broken = self.base / "broken.code-workspace"
+        broken.write_text("{not json", encoding="utf-8")
+        self.entry({"workspace": f"file://{broken}"}, name="b")
+        valid = self.base / "valid.code-workspace"
+        valid.write_text(json.dumps({"folders": [{"path": str(self.repo)}]}), encoding="utf-8")
+        accepted, _ = self.entry({"workspace": f"file://{valid}"}, name="c")
+        try:
+            linked = self.base / "linked.code-workspace"
+            linked.write_text(json.dumps({"folders": [{"path": str(self.repo)}]}), encoding="utf-8")
+            broken.unlink()
+            broken.symlink_to(linked)
+        except (OSError, NotImplementedError):
+            pass
+        result = codex_copilot.scan_copilot_vscode(self.vscode, self.repo)
+        # A linked or malformed reference never establishes ownership, so only
+        # the regular-file workspace entry contributes its session.
+        self.assertEqual([path for path, _ in result.sessions], [accepted])
+        self.assertEqual(result.skipped_unverified, 0)
+
+
+class CopilotVscodeDefaultSourceTests(unittest.TestCase):
+    def test_env_override_wins(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            override = Path(temporary) / "portable" / "User"
+            with patch.dict(os.environ, {"COPILOT_VSCODE_HOME": str(override)}):
+                self.assertEqual(core.default_source("copilot-vscode"), override / "workspaceStorage")
+
+    def test_platform_defaults(self) -> None:
+        # pathlib cannot construct a WindowsPath on POSIX hosts, so the win32
+        # branch is exercised only where it runs natively; CI covers Windows.
+        cases = [("posix", "darwin"), ("posix", "linux")]
+        if os.name == "nt":
+            cases.insert(0, ("nt", "win32"))
+        for name, platform in cases:
+            with self.subTest(platform=platform):
+                home = classmethod(lambda cls: Path("/home/tester"))
+                environment = {"APPDATA": "/roam"} if platform == "win32" else {}
+                with patch.object(core.os, "name", name), \
+                        patch.object(core.sys, "platform", platform), \
+                        patch.object(core.Path, "home", home), \
+                        patch.dict(os.environ, environment, clear=False):
+                    os.environ.pop("COPILOT_VSCODE_HOME", None)
+                    if platform == "win32":
+                        expected = Path("/roam") / "Code" / "User"
+                    elif platform == "darwin":
+                        expected = Path("/home/tester") / "Library" / "Application Support" / "Code" / "User"
+                    else:
+                        expected = Path("/home/tester") / ".config" / "Code" / "User"
+                    self.assertEqual(core.default_source("copilot-vscode"),
+                                     expected / "workspaceStorage")
 
 
 if __name__ == "__main__":

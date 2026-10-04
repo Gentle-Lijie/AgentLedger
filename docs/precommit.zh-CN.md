@@ -1,12 +1,12 @@
 # Agent Session Commit：pre-commit 配置指南
 
-当前发布版本为 [`agent-session-commit 0.1.3`](https://pypi.org/project/agent-session-commit/0.1.3/)，包含 TUI 安装助手，归档后端使用 `v0.1.3` tag。0.1.1 恢复了当前包名；此前 `v0.1.0` 使用 `agentledger` 上传时被 PyPI 拒绝，未上传任何发行文件，该 tag 保持不变。下面的配置安装到**你要记录会话的项目**，不是工具源码仓库。
+当前发布版本为 [`agent-session-commit 0.1.4`](https://pypi.org/project/agent-session-commit/0.1.4/)，包含 TUI 安装助手，归档后端使用 `v0.1.4` tag。0.1.1 恢复了当前包名；此前 `v0.1.0` 使用 `agentledger` 上传时被 PyPI 拒绝，未上传任何发行文件，该 tag 保持不变。下面的配置安装到**你要记录会话的项目**，不是工具源码仓库。
 
 需要 Git、Python 3.10+、pre-commit 3.2.0+；Windows 需要 Git for Windows。pre-commit 会为归档插件创建隔离环境并安装依赖。手动配置不必另外安装 `agent-session-commit`；使用 TUI 助手则要先把 PyPI 包安装到自己的持久环境中。
 
 本插件由 pre-commit 框架管理，但实际运行在 **post-commit** 阶段：代码提交成功后，新增会话归档会 amend 到该提交里，保留提交说明和作者，不产生额外的归档提交。
 
-## 推荐：通过 0.1.3 TUI 完成配置和安装
+## 推荐：通过 0.1.4 TUI 完成配置和安装
 
 从 PyPI 安装发布版本。在一个会长期保留的目录中创建并激活虚拟环境：
 
@@ -18,10 +18,10 @@ source .venv-agent-session-commit/bin/activate
 # .\.venv-agent-session-commit\Scripts\Activate.ps1
 # Windows Git Bash 改用：
 # source .venv-agent-session-commit/Scripts/activate
-python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.3'
+python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.4'
 ```
 
-按你的系统选择一条激活命令。可选依赖 `[pre-commit]` 会安装框架控制器；`questionary` 和 `PyYAML` 是 0.1.3 的基础依赖。保持这个环境激活，再切换到目标项目；安装后也要保留环境，移动或删除后需在可用环境中重新安装 hooks。
+按你的系统选择一条激活命令。可选依赖 `[pre-commit]` 会安装框架控制器；`questionary` 和 `PyYAML` 是基础依赖。保持这个环境激活，再切换到目标项目；安装后也要保留环境，移动或删除后需在可用环境中重新安装 hooks。
 
 ```sh
 cd /absolute/path/to/target-repository
@@ -38,7 +38,7 @@ Ctrl+C 取消时不会修改 Git 配置。每个仓库、每个克隆都需要�
 
 ### 如何处理已有配置
 
-- 如果没有 `.pre-commit-config.yaml`，助手会生成下方手动配置示例，归档后端固定到 `v0.1.3`，默认安装 `pre-commit` 和 `post-commit`。
+- 如果没有 `.pre-commit-config.yaml`，助手会生成下方手动配置示例，归档后端固定到 `v0.1.4`，默认安装 `pre-commit` 和 `post-commit`。
 - 如果已有配置，会原样保留注释和其他 hooks。文件中必须已有 `agent-session-commit` 或兼容的 `agentledger` hook ID；没有时会报错并给出合并指引，不会自动重写。手动合并下方插件条目后，再运行助手。
 - 安装会保留 `default_install_hook_types` 中的所有类型，并确保安装 `post-commit`，即使 YAML 列表漏写了它。为了以后直接运行 `pre-commit install` 时也能安装该阶段，请手动把 `post-commit` 加入列表。
 - 框架安装失败时，会恢复原有 Git local config 和 hook 文件，并删除本次新生成的 YAML。
@@ -63,7 +63,7 @@ agent-session-commit install --pre-commit --agent codex --source /absolute/path/
 
 ## 手动配置
 
-以下步骤不需要 TUI 助手，共享 YAML 使用 `rev: v0.1.3`。无 `--pre-commit` 的 `agent-session-commit install` 仍是原生安装模式，会管理包装脚本，也提供 TUI。使用框架模式时应选择带 `--pre-commit` 的助手，或下面的手动步骤。
+以下步骤不需要 TUI 助手，共享 YAML 使用 `rev: v0.1.4`。无 `--pre-commit` 的 `agent-session-commit install` 仍是原生安装模式，会管理包装脚本，也提供 TUI。使用框架模式时应选择带 `--pre-commit` 的助手，或下面的手动步骤。
 
 ## 1. 安装 pre-commit
 
@@ -105,20 +105,20 @@ default_install_hook_types: [pre-commit, post-commit]
 
 repos:
   - repo: https://github.com/Gentle-Lijie/AgentLedger
-    rev: v0.1.3
+    rev: v0.1.4
     hooks:
       - id: agent-session-commit
 ```
 
 也可以复制[示例文件](../examples/.pre-commit-config.yaml)。如果已有配置，合并这个 `repos` 条目；`default_install_hook_types` 中增加 `post-commit`，同时保留项目已有的 hook 类型。
 
-GitHub 仓库仍名为 `AgentLedger`；当前 PyPI 包名、命令和 hook ID 都是 `agent-session-commit`。`rev` 固定到发布版本 `v0.1.3`。
+GitHub 仓库仍名为 `AgentLedger`；当前 PyPI 包名、命令和 hook ID 都是 `agent-session-commit`。`rev` 固定到发布版本 `v0.1.4`。
 
 ## 3. 配置使用的 agent 和会话来源
 
 每个仓库都要设置三个 **Git local config** 项；这些配置存在 `.git/config` 中，不随源码提交。`agent-session.workdir` 固定为 Git 仓库根目录，即使从子目录安装也一样；只有会话记录的 `cwd` 与它精确相同才会归档。团队成员可以分别选择自己的工具和来源路径。
 
-0.1.3 的 `agent-session-commit install --pre-commit` 已通过 TUI 完成这一步和 hooks 安装，无需重复下面的手动命令。选择手动配置时使用以下命令。
+0.1.4 的 `agent-session-commit install --pre-commit` 已通过 TUI 完成这一步和 hooks 安装，无需重复下面的手动命令。选择手动配置时使用以下命令。
 
 ### Codex：macOS / Linux / Git Bash
 
@@ -160,6 +160,7 @@ git config --local agent-session.source "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/pro
 | Claude Code | `claude` | `~/.claude/projects/` | `CLAUDE_CONFIG_DIR/projects`。 |
 | Codex CLI | `codex` | `~/.codex/sessions/` | `CODEX_HOME/sessions`。 |
 | Copilot CLI | `copilot` | `~/.copilot/session-state/` | `COPILOT_HOME/session-state`；不是 IDE Chat 的存储目录。 |
+| Copilot VSCode | `copilot-vscode` | VSCode 的 `User/workspaceStorage/` | `COPILOT_VSCODE_HOME/workspaceStorage`；VSCode 扩展聊天会话。 |
 | Hermes | `hermes` | `~/.hermes/state.db` | `HERMES_HOME/state.db`。 |
 | Pi | `pi` | `~/.pi/agent/sessions/` | `PI_CODING_AGENT_DIR/sessions`。 |
 | DeepSeek Harness | `deepseek-harness` | `~/.dsh/` | `DSH_HOME` 或实际配置的会话 persistence root。 |
@@ -270,11 +271,11 @@ git config --show-origin --get-all core.hooksPath
 
 ### 为什么 pre-commit install 没有显示选择界面
 
-上游命令没有插件安装回调。TUI 属于 0.1.3 安装助手，需先按上方从 PyPI 安装，再运行 `agent-session-commit install --pre-commit`。它只在交互安装时显示，不在每次 Git commit 或 CI 中显示。
+上游命令没有插件安装回调。TUI 属于安装助手，需先按上方从 PyPI 安装，再运行 `agent-session-commit install --pre-commit`。它只在交互安装时显示，不在每次 Git commit 或 CI 中显示。
 
 ### 助手提示配置缺少本插件或缺少控制器
 
-已有 `.pre-commit-config.yaml` 时，助手不会自动插入条目。按第 2 步合并 `agent-session-commit` hook，保留其他配置和注释，再试一次；旧 `agentledger` ID 也被接受。缺少 pre-commit 控制器时，在已激活的环境里运行 `python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.3'`。
+已有 `.pre-commit-config.yaml` 时，助手不会自动插入条目。按第 2 步合并 `agent-session-commit` hook，保留其他配置和注释，再试一次；旧 `agentledger` ID 也被接受。缺少 pre-commit 控制器时，在已激活的环境里运行 `python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.4'`。
 
 ### 如何停用
 
@@ -287,4 +288,4 @@ git config --show-origin --get-all core.hooksPath
 - [pre-commit 官方文档](https://pre-commit.com/)
 - [English guide](precommit.md)
 - [完整示例配置](../examples/.pre-commit-config.yaml)
-- [PyPI：agent-session-commit 0.1.3](https://pypi.org/project/agent-session-commit/0.1.3/)
+- [PyPI：agent-session-commit 0.1.4](https://pypi.org/project/agent-session-commit/0.1.4/)
