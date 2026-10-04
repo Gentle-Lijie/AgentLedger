@@ -259,8 +259,8 @@ class CopilotVscodeScannerTests(unittest.TestCase):
         return path, body
 
     def test_accepts_json_and_jsonl_from_user_root_parent(self) -> None:
-        json_path, json_body = self.entry({"folder": f"file://{self.repo}"}, name="a", ext=".json")
-        jsonl_path, jsonl_body = self.entry({"folder": f"file://{self.repo}"}, name="b", ext=".jsonl")
+        json_path, json_body = self.entry({"folder": self.repo.as_uri()}, name="a", ext=".json")
+        jsonl_path, jsonl_body = self.entry({"folder": self.repo.as_uri()}, name="b", ext=".jsonl")
         result = codex_copilot.scan_copilot_vscode(self.vscode.parent, self.repo)
         self.assertEqual(result.sessions, [(json_path, json_body), (jsonl_path, jsonl_body)])
         self.assertEqual(result.skipped_unverified, 0)
@@ -268,15 +268,15 @@ class CopilotVscodeScannerTests(unittest.TestCase):
     def test_accepts_multi_root_code_workspace_reference(self) -> None:
         workspace_file = self.base / "team.code-workspace"
         workspace_file.write_text(json.dumps({"folders": [
-            {"uri": f"file://{self.other}"},
+            {"uri": self.other.as_uri()},
             {"path": str(self.repo)},
         ]}), encoding="utf-8")
-        path, body = self.entry({"workspace": f"file://{workspace_file}"})
+        path, body = self.entry({"workspace": workspace_file.as_uri()})
         result = codex_copilot.scan_copilot_vscode(self.vscode, self.repo)
         self.assertEqual(result.sessions, [(path, body)])
 
     def test_rejects_other_project_and_unattributable_storage_before_body_read(self) -> None:
-        self.entry({"folder": f"file://{self.other}"})
+        self.entry({"folder": self.other.as_uri()})
         self.entry({"folder": "vscode-remote://ssh-remote%2Bvm/home/zlj"}, name="b")
         storage = self.vscode / "c"
         (storage / "chatSessions").mkdir(parents=True)
@@ -288,23 +288,23 @@ class CopilotVscodeScannerTests(unittest.TestCase):
         self.assertEqual(result.skipped_unverified, 0)
 
     def test_rejects_nested_workspace_folder(self) -> None:
-        self.entry({"folder": f"file://{self.repo / 'src'}"})
+        self.entry({"folder": (self.repo / "src").as_uri()})
         self.assertEqual(codex_copilot.scan_copilot_vscode(self.vscode, self.repo).sessions, [])
 
     def test_jsonl_session_id_must_agree_with_filename(self) -> None:
         second_id = "12345678-1234-1234-1234-123456789abd"
-        self.entry({"folder": f"file://{self.repo}"},
+        self.entry({"folder": self.repo.as_uri()},
                    first={"kind": 0, "v": {"sessionId": second_id, "requests": []}})
         with patch.object(codex_copilot, "read_session_bytes", side_effect=AssertionError("body read")):
             result = codex_copilot.scan_copilot_vscode(self.vscode, self.repo)
         self.assertEqual(result.sessions, [])
         self.assertEqual(result.skipped_unverified, 1)
-        self.entry({"folder": f"file://{self.repo}"}, name="b",
+        self.entry({"folder": self.repo.as_uri()}, name="b",
                    first={"kind": 0, "v": {"requests": []}})
         self.assertEqual(len(codex_copilot.scan_copilot_vscode(self.vscode, self.repo).sessions), 1)
 
     def test_ignores_artifacts_and_rejects_linked_sessions(self) -> None:
-        path, _ = self.entry({"folder": f"file://{self.repo}"})
+        path, _ = self.entry({"folder": self.repo.as_uri()})
         chat = path.parent
         (chat / "notes.md").write_text(str(self.repo), encoding="utf-8")
         (chat / f"{SESSION_ID}.txt").write_text(str(self.repo), encoding="utf-8")
@@ -322,20 +322,20 @@ class CopilotVscodeScannerTests(unittest.TestCase):
         self.assertEqual(result.skipped_unverified, 1)
 
     def test_oversized_session_is_skipped(self) -> None:
-        huge, _ = self.entry({"folder": f"file://{self.repo}"})
+        huge, _ = self.entry({"folder": self.repo.as_uri()})
         with huge.open("ab") as stream:
             stream.truncate(MAX_SESSION_BYTES + 1)
         self.assertEqual(codex_copilot.scan_copilot_vscode(self.vscode, self.repo).sessions, [])
         self.assertEqual(codex_copilot.scan_copilot_vscode(self.vscode, self.repo).skipped_unverified, 1)
 
     def test_unusable_code_workspace_reference_is_ignored(self) -> None:
-        self.entry({"workspace": f"file://{self.base / 'missing.code-workspace'}"})
+        self.entry({"workspace": (self.base / "missing.code-workspace").as_uri()})
         broken = self.base / "broken.code-workspace"
         broken.write_text("{not json", encoding="utf-8")
-        self.entry({"workspace": f"file://{broken}"}, name="b")
+        self.entry({"workspace": broken.as_uri()}, name="b")
         valid = self.base / "valid.code-workspace"
         valid.write_text(json.dumps({"folders": [{"path": str(self.repo)}]}), encoding="utf-8")
-        accepted, _ = self.entry({"workspace": f"file://{valid}"}, name="c")
+        accepted, _ = self.entry({"workspace": valid.as_uri()}, name="c")
         try:
             linked = self.base / "linked.code-workspace"
             linked.write_text(json.dumps({"folders": [{"path": str(self.repo)}]}), encoding="utf-8")
