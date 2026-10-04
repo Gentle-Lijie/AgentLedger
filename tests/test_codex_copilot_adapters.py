@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -358,28 +359,19 @@ class CopilotVscodeDefaultSourceTests(unittest.TestCase):
                 self.assertEqual(core.default_source("copilot-vscode"), override / "workspaceStorage")
 
     def test_platform_defaults(self) -> None:
-        # pathlib cannot construct a WindowsPath on POSIX hosts, so the win32
-        # branch is exercised only where it runs natively; CI covers Windows.
-        cases = [("posix", "darwin"), ("posix", "linux")]
-        if os.name == "nt":
-            cases.insert(0, ("nt", "win32"))
-        for name, platform in cases:
-            with self.subTest(platform=platform):
-                home = classmethod(lambda cls: Path("/home/tester"))
-                environment = {"APPDATA": "/roam"} if platform == "win32" else {}
-                with patch.object(core.os, "name", name), \
-                        patch.object(core.sys, "platform", platform), \
-                        patch.object(core.Path, "home", home), \
-                        patch.dict(os.environ, environment, clear=False):
-                    os.environ.pop("COPILOT_VSCODE_HOME", None)
-                    if platform == "win32":
-                        expected = Path("/roam") / "Code" / "User"
-                    elif platform == "darwin":
-                        expected = Path("/home/tester") / "Library" / "Application Support" / "Code" / "User"
-                    else:
-                        expected = Path("/home/tester") / ".config" / "Code" / "User"
-                    self.assertEqual(core.default_source("copilot-vscode"),
-                                     expected / "workspaceStorage")
+        # pathlib cannot instantiate another flavour's concrete path, so each
+        # platform branch is checked only on its native host; the CI matrix
+        # runs macOS, Linux, and Windows and therefore covers every branch.
+        with patch.dict(os.environ):
+            os.environ.pop("COPILOT_VSCODE_HOME", None)
+            if sys.platform == "win32":
+                base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+            elif sys.platform == "darwin":
+                base = Path.home() / "Library" / "Application Support"
+            else:
+                base = Path.home() / ".config"
+            self.assertEqual(core.default_source("copilot-vscode"),
+                             base / "Code" / "User" / "workspaceStorage")
 
 
 if __name__ == "__main__":
