@@ -271,8 +271,8 @@ class HookIntegrationTests(unittest.TestCase):
                 self.assertEqual(self._git("status", "--porcelain").stdout, "")
 
     def test_all_requested_agents_are_selectable(self) -> None:
-        self.assertTrue({"zcode", "qoder", "trae", "codebuddy", "claude", "codex",
-                         "copilot", "copilot-vscode", "hermes", "pi",
+        self.assertTrue({"zcode", "qoder", "trae", "codebuddy", "workbuddy", "claude",
+                         "codex", "copilot", "copilot-vscode", "hermes", "pi",
                          "deepseek-harness"}.issubset(AGENTS))
 
 

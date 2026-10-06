@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from agent_session_commit import core
 from agent_session_commit.adapters.common import ScanResult, read_session_bytes
 from agent_session_commit.adapters.qoder_codebuddy import scan_codebuddy, scan_qoder
 
@@ -115,6 +117,51 @@ class VendorScannerTests(unittest.TestCase):
         alias = self.base / "linked project"
         alias.symlink_to(project, target_is_directory=True)
         self.assertEqual(scan_codebuddy(alias, self.root).sessions, [])
+
+
+class WorkBuddyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.base = Path(temporary.name)
+        self.root = self.base / "my repo"
+        self.root.mkdir()
+
+    def test_default_source_env_override_wins(self) -> None:
+        override = self.base / "portable"
+        with patch.dict(os.environ, {"WORKBUDDY_CONFIG_DIR": str(override)}):
+            self.assertEqual(core.default_source("workbuddy"), override / "projects")
+
+    def test_default_source_prefers_existing_international_dir(self) -> None:
+        with patch.dict(os.environ):
+            os.environ.pop("WORKBUDDY_CONFIG_DIR", None)
+            with patch.object(core.Path, "home", return_value=self.base):
+                international = self.base / ".workbuddy-ai" / "projects"
+                international.mkdir(parents=True)
+                self.assertEqual(core.default_source("workbuddy"), international)
+
+    def test_default_source_falls_back_to_documented_dir(self) -> None:
+        with patch.dict(os.environ):
+            os.environ.pop("WORKBUDDY_CONFIG_DIR", None)
+            with patch.object(core.Path, "home", return_value=self.base):
+                documented = self.base / ".workbuddy" / "projects"
+                self.assertEqual(core.default_source("workbuddy"), documented)
+                documented.mkdir(parents=True)
+                self.assertEqual(core.default_source("workbuddy"), documented)
+
+    def test_workbuddy_projects_layout_reuses_codebuddy_verification(self) -> None:
+        projects = self.base / ".workbuddy" / "projects"
+        owned = projects / "opaque-id"
+        owned.mkdir(parents=True)
+        session = owned / "session.jsonl"
+        session.write_text(json.dumps({"type": "user", "cwd": str(self.root)}) + "\n",
+                           encoding="utf-8")
+        unverified = owned / "unverified.jsonl"
+        unverified.write_text(json.dumps({"type": "user", "message": {"content": str(self.root)}}) + "\n",
+                              encoding="utf-8")
+        result = scan_codebuddy(projects, self.root)
+        self.assertEqual(result.sessions, [(session, session.read_bytes())])
+        self.assertEqual(result.skipped_unverified, 1)
 
 
 if __name__ == "__main__":

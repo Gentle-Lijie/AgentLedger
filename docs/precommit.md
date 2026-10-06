@@ -4,11 +4,11 @@
 
 Agent Session Commit includes a hook for the [pre-commit framework](https://pre-commit.com/). You need Git, Python 3.10 or newer, and pre-commit 3.2.0 or newer; Windows requires Git for Windows. The framework installs the archive backend in an isolated Python environment. Install the PyPI package separately to run the TUI installer in your shell.
 
-The current release is [`agent-session-commit 0.1.4`](https://pypi.org/project/agent-session-commit/0.1.4/), with archive backend tag `v0.1.4`. Version `0.1.1` restored the package name. The earlier `v0.1.0` PyPI upload under `agentledger` failed a project-name conflict check without uploading distribution files; that tag remains unchanged.
+The current release is [`agent-session-commit 0.1.5`](https://pypi.org/project/agent-session-commit/0.1.5/), with archive backend tag `v0.1.5`. Version `0.1.1` restored the package name. The earlier `v0.1.0` PyPI upload under `agentledger` failed a project-name conflict check without uploading distribution files; that tag remains unchanged.
 
-The 0.1.4 TUI helper configures the repository and calls the framework installer in one command. The shared YAML below uses `v0.1.4` as the archive backend.
+The 0.1.5 TUI helper configures the repository and calls the framework installer in one command. The shared YAML below uses `v0.1.5` as the archive backend.
 
-## Recommended: configure with the 0.1.4 TUI helper
+## Recommended: configure with the 0.1.5 TUI helper
 
 Install the PyPI release in a persistent virtual environment, in a directory you will keep:
 
@@ -20,7 +20,7 @@ source .venv-agent-session-commit/bin/activate
 # .\.venv-agent-session-commit\Scripts\Activate.ps1
 # Windows Git Bash instead:
 # source .venv-agent-session-commit/Scripts/activate
-python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.4'
+python -m pip install --index-url https://pypi.org/simple 'agent-session-commit[pre-commit]==0.1.5'
 ~~~
 
 Use the activation command appropriate to your shell. The optional `[pre-commit]` extra installs the framework controller; `questionary` and `PyYAML` are base dependencies. Keep the environment active as you switch to the target repository, and retain it after installation. If you move or delete it, reinstall the hooks from a working environment.
@@ -36,7 +36,7 @@ The helper saves `agent-session.agent`, `agent-session.source`, and `agent-sessi
 
 Configuration handling:
 
-- With no `.pre-commit-config.yaml`, it generates the YAML shown in the manual section below, pinned to `v0.1.4`, with `default_install_hook_types: [pre-commit, post-commit]`.
+- With no `.pre-commit-config.yaml`, it generates the YAML shown in the manual section below, pinned to `v0.1.5`, with `default_install_hook_types: [pre-commit, post-commit]`.
 - An existing YAML file, including comments and other hooks, is preserved. It must already include hook ID `agent-session-commit` or legacy `agentledger`. If the entry is missing, setup stops with actionable merge instructions; it does not rewrite your configuration automatically. Merge the entry shown below, then rerun the helper.
 - Installation includes all hook types from `default_install_hook_types` and ensures `post-commit`, even when absent from that list. Commit the YAML so collaborators can reuse it; for future plain `pre-commit install` runs, include `post-commit` in that list yourself.
 - If framework installation fails, previous local Git settings and hook files are restored and newly generated YAML is removed.
@@ -57,7 +57,7 @@ Ordinary upstream `pre-commit install` has no plugin setup callback, so it canno
 
 ## Configure a repository manually
 
-These steps are supported with release 0.1.4. Only the pre-commit controller needs to be installed in a persistent environment in your shell; the framework installs the archive backend separately.
+These steps are supported with release 0.1.5. Only the pre-commit controller needs to be installed in a persistent environment in your shell; the framework installs the archive backend separately.
 
 Run these commands inside the repository whose sessions you want to archive. If it already uses Agent Session Commit's native hooks, complete the migration section first.
 
@@ -100,7 +100,7 @@ minimum_pre_commit_version: '3.2.0'
 default_install_hook_types: [pre-commit, post-commit]
 repos:
   - repo: https://github.com/Gentle-Lijie/AgentLedger
-    rev: v0.1.4
+    rev: v0.1.5
     hooks:
       - id: agent-session-commit
 ~~~
@@ -155,6 +155,7 @@ Set `agent-session.agent` to the key below and `agent-session.source` to an exis
 | `qoder` | `~/.qoder/projects/` | `QODER_CONFIG_DIR/projects`, or the IDE transcript directory. |
 | `trae` | Repository's `.agent-sessions/source/` | Directory containing exported conversations. |
 | `codebuddy` | `~/.codebuddy/projects/` | `CODEBUDDY_CONFIG_DIR/projects`; IDE users select exported transcripts. |
+| `workbuddy` | `~/.workbuddy/projects/` | `WORKBUDDY_CONFIG_DIR/projects`; an existing `~/.workbuddy-ai/projects` is preferred when no override is set. |
 | `claude` | `~/.claude/projects/` | `CLAUDE_CONFIG_DIR/projects`. |
 | `codex` | `~/.codex/sessions/` | `CODEX_HOME/sessions`. |
 | `copilot` | `~/.copilot/session-state/` | `COPILOT_HOME/session-state`; CLI sessions only. |

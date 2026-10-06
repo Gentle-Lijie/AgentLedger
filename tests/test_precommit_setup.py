@@ -146,7 +146,7 @@ class PreCommitSetupTests(unittest.TestCase):
         self.assertEqual(self.config.read_bytes(), DEFAULT_CONFIG.encode())
         data = yaml.safe_load(self.config.read_bytes())
         self.assertEqual(data["minimum_pre_commit_version"], "3.2.0")
-        self.assertEqual(data["repos"][0]["rev"], "v0.1.4")
+        self.assertEqual(data["repos"][0]["rev"], "v0.1.5")
         self.assertEqual(data["repos"][0]["hooks"][0]["id"], "agent-session-commit")
         self.assertEqual(self.controller_calls[-1], ["install", "--install-hooks", "--hook-type", "pre-commit",
                                                      "--hook-type", "post-commit"])

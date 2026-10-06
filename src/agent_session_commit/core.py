@@ -18,6 +18,7 @@ AGENTS = {
     "qoder": "Qoder",
     "trae": "Trae",
     "codebuddy": "Tencent CodeBuddy",
+    "workbuddy": "Tencent WorkBuddy",
     "claude": "Claude Code",
     "codex": "OpenAI Codex CLI",
     "copilot": "GitHub Copilot CLI",
@@ -60,6 +61,14 @@ def default_source(agent: str, root: Path | None = None) -> Path | None:
     if agent == "codebuddy":
         base = Path(os.environ.get("CODEBUDDY_CONFIG_DIR", home / ".codebuddy")).expanduser()
         return base / "projects"
+    if agent == "workbuddy":
+        override = os.environ.get("WORKBUDDY_CONFIG_DIR")
+        if override:
+            return Path(override).expanduser() / "projects"
+        # The international desktop build uses ~/.workbuddy-ai; prefer an
+        # existing directory, else the documented ~/.workbuddy default.
+        candidates = [home / ".workbuddy-ai" / "projects", home / ".workbuddy" / "projects"]
+        return next((path for path in candidates if path.is_dir()), candidates[1])
     if agent == "claude":
         base = Path(os.environ.get("CLAUDE_CONFIG_DIR", home / ".claude")).expanduser()
         projects = base / "projects"
@@ -359,7 +368,7 @@ def _scan(root: Path, *, report_skips: bool = False) -> list[tuple[Path, bytes]]
     elif agent == "qoder":
         from .adapters.qoder_codebuddy import scan_qoder
         result = scan_qoder(source, workdir)
-    elif agent == "codebuddy":
+    elif agent in {"codebuddy", "workbuddy"}:
         from .adapters.qoder_codebuddy import scan_codebuddy
         result = scan_codebuddy(source, workdir)
     else:

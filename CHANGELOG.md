@@ -2,6 +2,16 @@
 
 Changes are recorded before publication. Versions come from `__version__` in `src/agent_session_commit/__init__.py`; release tags use the exact form `v<version>`.
 
+## 0.1.5 — 2026-10-06
+
+### Added
+
+- `workbuddy` agent for Tencent WorkBuddy CLI sessions. The default source is `~/.workbuddy/projects/` (`WORKBUDDY_CONFIG_DIR` overrides the config root); when no override is set, an existing `~/.workbuddy-ai/projects` from the international build is preferred. Session verification reuses the CodeBuddy adapter: bounded JSONL headers must carry a top-level `cwd` resolving to this repository, and unverified candidates are skipped.
+
+### Changed
+
+- The generated and example pre-commit configurations pin the `v0.1.5` backend.
+
 ## 0.1.4 — 2026-10-04
 
 ### Added

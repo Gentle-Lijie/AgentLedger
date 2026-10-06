@@ -25,7 +25,7 @@ default_install_hook_types: [pre-commit, post-commit]
 
 repos:
   - repo: https://github.com/Gentle-Lijie/AgentLedger
-    rev: v0.1.4
+    rev: v0.1.5
     hooks:
       - id: agent-session-commit
 """
